@@ -1,4 +1,6 @@
 # demo of par2vel
+import os
+os.system('cd ..')
 import numpy as np
 import matplotlib.pyplot as plt
 from par2vel.camera import One2One
