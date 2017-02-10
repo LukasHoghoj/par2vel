@@ -37,6 +37,8 @@ class ArtImage(object):
         Xc = abs(self.cam.x2X(array([[0.0, nj,  0, nj],
                                  [0.0,  0, ni, ni]]))) # ni is x1 and nj is x0
         # find area in physical space (z=0 plane) as sum of two triangles
+        # abs() has been added to lines 37-38, eventually because of an error
+        # in the x2X function of Scheimpflug object...
         Xc2 = Xc[:2, :]
         area = 0.5 * ( abs(cross(Xc2[:,1] - Xc2[:,0], Xc2[:,2] - Xc2[:,0])) +
                        abs(cross(Xc2[:,1] - Xc2[:,3], Xc2[:,2] - Xc2[:,3])) )
