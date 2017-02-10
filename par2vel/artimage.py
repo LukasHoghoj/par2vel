@@ -34,8 +34,8 @@ class ArtImage(object):
         from numpy.random import rand
         # get physical coordinates of camera image corners
         ni, nj = self.cam.shape
-        Xc = self.cam.x2X(array([[0.0, nj,  0, nj],
-                                 [0.0,  0, ni, ni]])) # ni is x1 and nj is x0
+        Xc = abs(self.cam.x2X(array([[0.0, nj,  0, nj],
+                                 [0.0,  0, ni, ni]]))) # ni is x1 and nj is x0
         # find area in physical space (z=0 plane) as sum of two triangles
         Xc2 = Xc[:2, :]
         area = 0.5 * ( abs(cross(Xc2[:,1] - Xc2[:,0], Xc2[:,2] - Xc2[:,0])) +
@@ -46,7 +46,7 @@ class ArtImage(object):
         print(Xc[:,3])
         print(Xc[:,0])
         deltaX = Xc[:,3] - Xc[:,0]
-        print(deltaX)
+        print(Xc[:,0])
         Xc0 = Xc[:,0] - factor * deltaX
         Xc0[2] = -self.sheet_thickness  # use 2 * sheet_thickness
         deltaX = (1 + 2 * factor) * deltaX
