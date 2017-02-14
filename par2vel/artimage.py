@@ -34,19 +34,15 @@ class ArtImage(object):
         from numpy.random import rand
         # get physical coordinates of camera image corners
         ni, nj = self.cam.shape
-        Xc = abs(self.cam.x2X(array([[0.0, nj,  0, nj],
-                                 [0.0,  0, ni, ni]]))) # ni is x1 and nj is x0
+        Xc = self.cam.x2X(array([[0.0, nj,  0, nj],
+                                 [0.0,  0, ni, ni]])) # ni is x1 and nj is x0
         # find area in physical space (z=0 plane) as sum of two triangles
-        # abs() has been added to lines 37-38, eventually because of an error
-        # in the x2X function of Scheimpflug object...
+        print(Xc)
         Xc2 = Xc[:2, :]
         area = 0.5 * ( abs(cross(Xc2[:,1] - Xc2[:,0], Xc2[:,2] - Xc2[:,0])) +
                        abs(cross(Xc2[:,1] - Xc2[:,3], Xc2[:,2] - Xc2[:,3])) )
         # increase physcial area to account for particle displacements
         factor = 0.1   # increase by 10% at each side
-        print(Xc)
-        print(Xc[:,3])
-        print(Xc[:,0])
         deltaX = Xc[:,3] - Xc[:,0]
         print(Xc[:,0])
         Xc0 = Xc[:,0] - factor * deltaX
