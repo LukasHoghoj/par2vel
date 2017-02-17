@@ -120,15 +120,15 @@ def displacementFFT(win1,win2,biascorrect=None):
     w1std=win1.std()
     w2std=win2.std()
     # calculate normalized cross correlation
-    print('hej')
-    print(win2.std(),win1.mean())
-    print('hej')
+    #print('hej')
+    #print(win2.std(),win1.mean())
+    #print('hej')
     R=xcorr2(w1f,w2f)/(winsize*winsize*w1std*w2std)
     # do bias correction
     if biascorrect is None: 
         biascorrect=xcorr2(numpy.ones((winsize,winsize),float),
                       numpy.ones((winsize,winsize),float))/(winsize*winsize)
-    print(biascorrect)
+    #print(biascorrect)
     R2=R/biascorrect
     # find peak 
     ipeak,jpeak=findpeakindex(R)

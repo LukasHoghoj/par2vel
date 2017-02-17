@@ -484,10 +484,6 @@ class Scheimpflug(Camera):
         X1 = -self.pixel_pitch[1] * (x[1,:] - xcenter1) / m
         X2 = zeros((1,nj))
         X = vstack((X0, X1, X2))
-        # Transform back to coordinate system in left top of the image (for the
-        # moment this only works when all corners of the image plane are transformed)
-        X[0] = X[0] - numpy.min(X[0])
-        X[1] = -X[1] + numpy.max(X[1])
         return X
 
                 

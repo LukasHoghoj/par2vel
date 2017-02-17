@@ -43,22 +43,25 @@ class ArtImage(object):
                        abs(cross(Xc2[:,1] - Xc2[:,3], Xc2[:,2] - Xc2[:,3])) )
         # increase physcial area to account for particle displacements
         factor = 0.1   # increase by 10% at each side
-        deltaX = Xc[:,3] - Xc[:,0]
-        print(Xc[:,0])
+        #deltaX = Xc[:,3] - Xc[:,0]
+        deltaX = array([max(Xc[0]) - min(Xc[0]),max(Xc[1]) - min(Xc[1]),0])
         Xc0 = Xc[:,0] - factor * deltaX
         Xc0[2] = -self.sheet_thickness  # use 2 * sheet_thickness
         deltaX = (1 + 2 * factor) * deltaX
+        print(Xc0)
         deltaX[2] = 2 * self.sheet_thickness
+        print(deltaX)
         # get number of particles in this space
         n_particles = ni * nj * particle_density
         npar2 = int(2 * n_particles * (deltaX[0] * deltaX[1] / area))
+        print(npar2)
         # generate random particle positions (origo at center of space)
         # particle array is stored in list as first element
         self.X = [empty((3,npar2),float)]
-        self.X[0][0,:] = deltaX[0] * rand(npar2) + Xc0[0]
-        self.X[0][1,:] = deltaX[1] * rand(npar2) + Xc0[1]
-        self.X[0][2,:] = deltaX[2] * rand(npar2) + Xc0[2]
-
+        self.X[0][0,:] = deltaX[0] * (rand(npar2) - 1/2)# + Xc0[0]
+        self.X[0][1,:] = deltaX[1] * (rand(npar2) - 1/2)# + Xc0[1]
+        self.X[0][2,:] = 0#deltaX[2] * rand(npar2) + Xc0[2]
+        print(self.X)
     def particle_positions(self, X):
         """ Add array of particle positions manually """
         self.X.append(X)

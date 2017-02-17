@@ -6,8 +6,8 @@ Created on Tue Feb  7 15:25:59 2017
 
 Demonstration on how to use the Scheimpflug with the par2vel toolbox
 """
-"""import os
-os.system('cd ..')"""
+import os
+os.system('cd ..')
 import numpy as np
 import matplotlib.pyplot as plt
 from par2vel.camera import Scheimpflug
@@ -16,12 +16,14 @@ from par2vel.artimage import ArtImage, constUfunc, OseenUfunc
 from par2vel.piv2d import fftdx
 
 cam = Scheimpflug((512,512))
-cam.set_calibration(np.pi/4,5/100) #M between 0 & 1
+cam.set_calibration(np.pi/4,1/100) #M between 0 & 1
 ai = ArtImage(cam)
 ai.random_particles(0.02)
 dx =np.array([5.1,2.2])
 #ai.displace_particles(constUfunc(dx), 1)
-ai.displace_particles(OseenUfunc(200,8,[256,256,0.0]), 1)
+print(max(ai.X[0][0]))
+print(max(ai.X[0][1]))
+ai.displace_particles(OseenUfunc(0.3,8,[0,0,0.0]), 1)
 ai.generate_images()
 iagrid = Field2D(cam)
 iagrid.squarewindows(32, 0.5)
