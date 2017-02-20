@@ -403,8 +403,11 @@ class Scheimpflug(Camera):
         """
         # very simple model setting physical coordinates to image coord.
         from numpy import zeros, vstack
-        dummy, n = dx.shape
-        dX = vstack((dx, zeros((1,n))))
+        X = self.x2X(x)
+        X2 = self.x2X(x+dx)
+        dX = X2-X
+        # dummy, n = dx.shape
+        # dX = vstack((dx, zeros((1,n))))
         return dX      
 
     def save_camera(self, filename):
