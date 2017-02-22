@@ -125,7 +125,7 @@ def displacementFFT(win1,win2,biascorrect=None):
     if biascorrect is None: 
         biascorrect=xcorr2(numpy.ones((winsize,winsize),float),
                       numpy.ones((winsize,winsize),float))/(winsize*winsize)
-    R2=R/biascorrect
+    R2 = R/biascorrect
     # find peak 
     ipeak,jpeak=findpeakindex(R)
     # find peak in R2 (might move sligthly)
@@ -137,7 +137,6 @@ def displacementFFT(win1,win2,biascorrect=None):
         ifrac,jfrac=gauss_interpolate2(R2[ipeak-1:ipeak+2,jpeak-1:jpeak+2])
     except IndexError:  # peak at edge of correlation plane
         ifrac,jfrac=0.0,0.0
-    # print R2[winsize-3:winsize+2,winsize-3:winsize+2]
     return winsize - 1 - ipeak - ifrac, winsize -1 - jpeak - jfrac    
 
 def fftdx(Im1, Im2, field):

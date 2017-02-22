@@ -194,3 +194,25 @@ class Field2D(object):
             meandx,stddx,n=self.localmean(i,j)
             self.dx[:,i,j]=meandx
             self.replaced[i,j]=True
+                         
+class Field3D(object):
+    def __init__(self,camera1,camera2):
+        self.cam1 = camera1
+        self.cam2 = camera2
+        
+    def gird(self,res,overlap):
+        """Make a grid that has the resolution res[0] x res[1]"""
+        # Find area that both cameras cover:
+        lim1 = self.cam1.x2X(numpy.array([[0,0,self.cam1.pixels[0],\
+                                          self.cam1.pixels[0]],\
+                                            [0,self.cam1.pixels[1],0,\
+                                             self.cam1.pixels[1]]]))
+        lim2 = self.cam2.x2X(numpy.array([[0,0,self.cam2.pixels[0],\
+                                          self.cam2.pixels[0]],\
+                                            [0,self.cam2.pixels[1],0,\
+                                             self.cam2.pixels[1]]]))
+        
+        # Empty matrix for object plane coordinates:
+        self.X = numpy.zeros((2,res[0],res[1]))
+        
+        
