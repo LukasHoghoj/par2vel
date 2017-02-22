@@ -194,3 +194,10 @@ class Field2D(object):
             meandx,stddx,n=self.localmean(i,j)
             self.dx[:,i,j]=meandx
             self.replaced[i,j]=True
+                         
+class Field3D(object):
+    def __init__(self,camera1,camera2):
+        self.cam1 = camera1
+        self.cam2 = camera2
+    
+        
