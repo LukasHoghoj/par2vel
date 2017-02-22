@@ -200,8 +200,7 @@ class Field3D(object):
         self.cam1 = camera1
         self.cam2 = camera2
         
-    def gird(self,res,overlap):
-        """Make a grid that has the resolution res[0] x res[1]"""
+    def corners(self):
         # Find area that both cameras cover:
         lim1 = self.cam1.x2X(numpy.array([[0,0,self.cam1.pixels[0],\
                                           self.cam1.pixels[0]],\
@@ -211,8 +210,20 @@ class Field3D(object):
                                           self.cam2.pixels[0]],\
                                             [0,self.cam2.pixels[1],0,\
                                              self.cam2.pixels[1]]]))
+        if lim1/abs(lim1) == lim2/abs(lim2):
+            X = numpy.minimum(abs(lim1),abs(lim2))*lim1/abs(lim1)
+        else:
+            raise('This coordinate system is currently not supported!')
+        self.X_int = numpy.array([[max(X[0,X[0]<0]),min(X[0,X[0]>0])],\
+                                  [max(X[1,X[1]<0]),min(X[1,X[1]>0])])
         
+    def gird(self,res,overlap):
+        """Make a grid that has the resolution res[0] x res[1]"""
         # Empty matrix for object plane coordinates:
         self.X = numpy.zeros((2,res[0],res[1]))
+        # Space between two points (in object plane)
+        DeltaX = (X[:,1]-X[:,0])/res
+        self.X[0,:] = DeltaX[0]/2
+        self.X[1,:] = DeltaX[1]/2
         
         
