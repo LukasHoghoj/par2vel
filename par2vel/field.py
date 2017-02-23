@@ -196,9 +196,12 @@ class Field2D(object):
             self.replaced[i,j]=True
                          
 class Field3D(object):
-    def __init__(self,camera1,camera2):
-        self.cam1 = camera1
-        self.cam2 = camera2
+    def __init__(self,cams):
+        import gridcams
+        self.grid = [gridcams[0],gridcams[1]]
+        
+        def gridcams(self,cam):
+            self.cam = cam        
         
     def corners(self):
         # Find area that both cameras cover:
@@ -231,6 +234,17 @@ class Field3D(object):
         self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],X_int[1,1],\
                                      DeltaX[1]).reshape(res[1],1)
         
+        # Flattering the grid:
+        X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten()])
         
-        
+        # Converting to obejct plane grid coordinates to image plane 
+        # coordinates
+        self.cam1.x = self.cam1.X2x(X_flat).reshape(numpy.shape(self.X))
+        self.cam2.x = self.cam2.X2x(X_flat).reshape(numpy.shape(self.X))
+    def iterogation(self,overlap):
+        """ This function has the purpose to define the square shaped 
+            interogation areas at each point of the grids in both cameras
+            Note that in this function self refers to what in the other 
+            functions of Field3D class would be either self.cam1 or 
+            self.cam2 """
         
