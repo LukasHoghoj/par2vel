@@ -196,31 +196,34 @@ class Field2D(object):
             self.replaced[i,j]=True
                          
 class Field3D(object):
-    def __init__(self,cams):
-        import gridcams
-        self.grid = [gridcams[0],gridcams[1]]
-        
-        def gridcams(self,cam):
-            self.cam = cam        
-        
+    def __init__(self,cam):
+        # Assign cameras to grid2d subobject
+        self.grid2d = []
+        self.grid2d.append(type('grid2d',(),{})())
+        self.grid2d.append(type('grid2d',(),{})())
+        self.grid2d[0].cam = cam[0]
+        self.grid2d[1].cam = cam[1]
     def corners(self):
         # Find area that both cameras cover:
-        lim1 = self.cam1.x2X(numpy.array([[0,0,self.cam1.pixels[0],\
-                                          self.cam1.pixels[0]],\
-                                            [0,self.cam1.pixels[1],0,\
-                                             self.cam1.pixels[1]]]))
-        lim2 = self.cam2.x2X(numpy.array([[0,0,self.cam2.pixels[0],\
-                                          self.cam2.pixels[0]],\
-                                            [0,self.cam2.pixels[1],0,\
-                                             self.cam2.pixels[1]]]))
-        if lim1/abs(lim1) == lim2/abs(lim2):
+        # Unwrapping
+        cam1 = self.grid2d[0].cam
+        cam2 = self.grid2d[1].cam
+        # Limits of each camera
+        lim1 = cam1.x2X(numpy.array([[0,0,cam1.pixels[0],cam1.pixels[0]],\
+                                     [0,cam1.pixels[1],0,cam1.pixels[1]]]))
+        lim2 = cam2.x2X(numpy.array([[0,0,cam2.pixels[0],cam2.pixels[0]],\
+                                     [0,cam2.pixels[1],0,cam2.pixels[1]]]))
+        # Make sure object space edges are on the same side of origo (this may
+        # be changed later in order to support other coordinate systems)
+        if numpy.all(lim1/abs(lim1) == lim2/abs(lim2)):
             X = numpy.minimum(abs(lim1),abs(lim2))*lim1/abs(lim1)
         else:
             raise('This coordinate system is currently not supported!')
+        # The four corners of the common rectangle are now defined
         self.X_int = numpy.array([[max(X[0,X[0]<0]),min(X[0,X[0]>0])],\
                                   [max(X[1,X[1]<0]),min(X[1,X[1]>0])]])
         
-    def gird(self,res,overlap):
+    def gird(self,res):
         """Make a grid that has the resolution res[0] x res[1] and make 
            corresponding camera plane grids"""
         # Find corners in object plane
@@ -239,8 +242,9 @@ class Field3D(object):
         
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
-        self.cam1.x = self.cam1.X2x(X_flat).reshape(numpy.shape(self.X))
-        self.cam2.x = self.cam2.X2x(X_flat).reshape(numpy.shape(self.X))
+        for i in range(self.grid2d):
+               self.grid2d[i].x = self.grid2d[i].cam.X2x(X_flat).\
+                                          reshape(numpy.shape(self.X))
     def iterogation(self,overlap):
         """ This function has the purpose to define the square shaped 
             interogation areas at each point of the grids in both cameras
