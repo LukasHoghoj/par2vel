@@ -204,37 +204,43 @@ class Field3D(object):
         self.grid2d[0].cam = cam[0]
         self.grid2d[1].cam = cam[1]
     def corners(self):
-        # Find area that both cameras cover:
+        from numpy import append, array
+        # Find area that both cameras cover
         # Unwrapping
         cam1 = self.grid2d[0].cam
         cam2 = self.grid2d[1].cam
         # Limits of each camera
-        lim1 = cam1.x2X(numpy.array([[0,0,cam1.pixels[0],cam1.pixels[0]],\
+        lim1 = cam1.x2X(array([[0,0,cam1.pixels[0],cam1.pixels[0]],\
                                      [0,cam1.pixels[1],0,cam1.pixels[1]]]))
-        lim2 = cam2.x2X(numpy.array([[0,0,cam2.pixels[0],cam2.pixels[0]],\
+        lim2 = cam2.x2X(array([[0,0,cam2.pixels[0],cam2.pixels[0]],\
                                      [0,cam2.pixels[1],0,cam2.pixels[1]]]))
-        # Make sure object space edges are on the same side of origo (this may
-        # be changed later in order to support other coordinate systems)
-        if numpy.all(lim1/abs(lim1) == lim2/abs(lim2)):
-            X = numpy.minimum(abs(lim1),abs(lim2))*lim1/abs(lim1)
-        else:
-            raise('This coordinate system is currently not supported!')
+        # Rearanging the lim arrays
+        lim1 = lim1[:,lim1[0,:].argsort()]
+        lim2 = lim2[:,lim2[0,:].argsort()]
+        lim1[:,0:2] = lim1[:,lim1[1,0:2].argsort()]
+        lim1[:,2:4] = lim1[:,lim1[1,2:4].argsort()+2]
+        lim2[:,0:2] = lim2[:,lim2[1,0:2].argsort()]
+        lim2[:,2:4] = lim2[:,lim2[1,2:4].argsort()+2]
+        print(lim1)
+        print(lim2)
         # The four corners of the common rectangle are now defined
-        self.X_int = numpy.array([[max(X[0,X[0]<0]),min(X[0,X[0]>0])],\
-                                  [max(X[1,X[1]<0]),min(X[1,X[1]>0])]])
+        self.X_int = array([[max(append(lim1[0,0:2],lim2[0,0:2])),\
+                                   min(append(lim1[0,2:4],lim2[0,2:4]))],\
+                                  [max(append(lim1[1,[0,2]],lim2[1,[0,2]])),\
+                                   min(append(lim1[1,[1,3]],lim2[1,[1,4]]))]])
         
-    def gird(self,res):
+    def grid(self,res):
         """Make a grid that has the resolution res[0] x res[1] and make 
            corresponding camera plane grids"""
         # Find corners in object plane
-        self.corners
+        self.corners()
         # Empty matrix for object plane coordinates:
         self.X = numpy.zeros((2,res[0],res[1]))
         # Space between two points (in object plane)
         DeltaX = (self.X_int[:,1]-self.X_int[:,0])/res
-        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],X_int[0,1],\
+        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],self.X_int[0,1],\
                                      DeltaX[0])
-        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],X_int[1,1],\
+        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],self.X_int[1,1],\
                                      DeltaX[1]).reshape(res[1],1)
         
         # Flattering the grid:
