@@ -6,8 +6,6 @@ Created on Tue Feb  7 15:25:59 2017
 
 Demonstration on how to use the Scheimpflug with the par2vel toolbox
 """
-import os
-os.system('cd ..')
 import numpy as np
 import matplotlib.pyplot as plt
 from par2vel.camera import Scheimpflug
