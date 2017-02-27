@@ -227,7 +227,7 @@ class Field3D(object):
         self.X_int = array([[max(append(lim1[0,0:2],lim2[0,0:2])),\
                                    min(append(lim1[0,2:4],lim2[0,2:4]))],\
                                   [max(append(lim1[1,[0,2]],lim2[1,[0,2]])),\
-                                   min(append(lim1[1,[1,3]],lim2[1,[1,4]]))]])
+                                   min(append(lim1[1,[1,3]],lim2[1,[1,3]]))]])
         
     def grid(self,res):
         """Make a grid that has the resolution res[0] x res[1] and make 
@@ -251,10 +251,11 @@ class Field3D(object):
         for i in range(self.grid2d):
                self.grid2d[i].x = self.grid2d[i].cam.X2x(X_flat).\
                                           reshape(numpy.shape(self.X))
-    def iterogation(self,overlap):
+    def iterogation(self,overlap,camnum):
         """ This function has the purpose to define the square shaped 
             interogation areas at each point of the grids in both cameras
             Note that in this function self refers to what in the other 
             functions of Field3D class would be either self.cam1 or 
             self.cam2 """
+        
         
