@@ -221,8 +221,6 @@ class Field3D(object):
         lim1[:,2:4] = lim1[:,lim1[1,2:4].argsort()+2]
         lim2[:,0:2] = lim2[:,lim2[1,0:2].argsort()]
         lim2[:,2:4] = lim2[:,lim2[1,2:4].argsort()+2]
-        print(lim1)
-        print(lim2)
         # The four corners of the common rectangle are now defined
         self.X_int = array([[max(append(lim1[0,0:2],lim2[0,0:2])),\
                                    min(append(lim1[0,2:4],lim2[0,2:4]))],\
@@ -232,25 +230,23 @@ class Field3D(object):
     def grid(self,res):
         """Make a grid that has the resolution res[0] x res[1] and make 
            corresponding camera plane grids"""
+        res = numpy.array(res)
         # Find corners in object plane
         self.corners()
         # Empty matrix for object plane coordinates:
-        self.X = numpy.zeros((2,res[0],res[1]))
+        self.X = numpy.zeros((2,res[1],res[0]))
         # Space between two points (in object plane)
         DeltaX = (self.X_int[:,1]-self.X_int[:,0])/res
-        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],self.X_int[0,1],\
-                                     DeltaX[0])
-        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],self.X_int[1,1],\
-                                     DeltaX[1]).reshape(res[1],1)
+        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],self.X_int[0,1],DeltaX[0])
+        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],self.X_int[1,1],DeltaX[1]).reshape(res[1],1)
         
         # Flattering the grid:
-        X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten()])
-        
+        X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),numpy.zeros(res[0]*res[1])])
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
-        for i in range(self.grid2d):
-               self.grid2d[i].x = self.grid2d[i].cam.X2x(X_flat).\
-                                          reshape(numpy.shape(self.X))
+        for i in range(len(self.grid2d)):
+               self.grid2d[i].x = self.grid2d[i].cam.X2x(X_flat)
+               self.grid2d[i].x.reshape(numpy.shape(self.X))
     def iterogation(self,overlap,camnum):
         """ This function has the purpose to define the square shaped 
             interogation areas at each point of the grids in both cameras
