@@ -19,7 +19,6 @@ class testField3D(unittest.TestCase):
         cam2.set_calibration(-numpy.pi/4,1/500)
         field = Field3D([cam1,cam2])
         field.grid([25,20])
-        
 
 if __name__ == '__main__':
     unittest.main()
