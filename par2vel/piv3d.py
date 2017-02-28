@@ -16,3 +16,8 @@ def piv_camplane(Im_cam1,Im_cam2,field3d):
     fftdx(Im_cam1[0],Im_cam1[1],field3d.field2d[0])
     fftdx(Im_cam2[0],Im_cam2[1],field3d.field2d[1])
 
+def stereo_first():
+    dis = np.array([[1,0,0],[0,1,0],[0,0,1]])
+    par1 = cam1.dX2dx([X,Y,0],dis)
+    par2 = cam2.dX2dx([X,Y,0],dis)
+    print(par1)
