@@ -43,6 +43,16 @@ class Field2D(object):
         self.x = (mgrid[0.:nx, 0.:ny]) * offset + winsize/2.0 - 0.5
         # set outlier boolean array to false
         self.outlier = numpy.zeros(self.shape, bool)
+    
+    def setwinsize(self,overlap):
+        """Find size of squarewindows with a certain overlap, when the 
+        interogation grid already is given (most likely to be used in a stereo-
+        PIV application, together with Field3D"""
+        self.wintype = 'square'
+        self.winsize = 32 # Have to find a better way to set winsize, eventu-
+        # -ally different for each point
+        nx, ny = numpy.shape(self.x[0])
+        self.shape = (nx,ny)
 
     def setx(self, x, winsize=32):
         """Set centers of interrogation windows manually"""
@@ -201,8 +211,8 @@ class Field3D(object):
         the 3D object will later be used for the cross correlations in the
         different camera planes."""
         self.field2d = []
-        self.field2d.append(Field2D.__init__(cam[0]))
-        self.field2d.append(Field2D.__init__(cam[1]))
+        self.field2d.append(Field2D(cam[0]))
+        self.field2d.append(Field2D(cam[1]))
     def corners(self):
         """Find area that both cameras cover"""
         from numpy import append, array
@@ -247,9 +257,10 @@ class Field3D(object):
                               numpy.zeros(res[0]*res[1])])
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
-        for i in range(len(self.grid2d)):
-               self.field2d[i].x = self.field2d[i].cam.X2x(X_flat)
-               self.field2d[i].x.reshape(numpy.shape(self.X))
+        for i in range(len(self.field2d)):
+               self.field2d[i].x = self.field2d[i].camera.X2x(X_flat)
+               self.field2d[i].x = self.field2d[i].x.reshape(numpy.shape(self.X))
+               self.field2d[i].setwinsize(0.5)
     def iterogation(self,overlap,camnum):
         """ This function has the purpose to define the square shaped 
             interogation areas at each point of the grids in both cameras
