@@ -263,10 +263,10 @@ class Field3D(object):
                self.field2d[i].setwinsize(0.5)
     def dxdX(self):
         """Define partial derivatives dx/dX"""
-        dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])
+        dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*10**(-3)
         na = numpy.newaxis
         for i in range(len(self.field2d)):
-            self.field2d[i].parX = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,0][na,:].T)
-            self.field2d[i].parY = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,1][na,:].T)
-            self.field2d[i].parZ = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,2][na,:].T)
+            self.field2d[i].parX = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,0][na,:].T)*10**3
+            self.field2d[i].parY = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,1][na,:].T)*10**3
+            self.field2d[i].parZ = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,2][na,:].T)*10**3
         
