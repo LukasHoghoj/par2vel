@@ -253,19 +253,20 @@ class Field3D(object):
                               self.X_int[1,1],DeltaX[1]).reshape(res[1],1)
         
         # Flattering the grid:
-        X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),\
+        self.X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),\
                               numpy.zeros(res[0]*res[1])])
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
         for i in range(len(self.field2d)):
-               self.field2d[i].x = self.field2d[i].camera.X2x(X_flat)
+               self.field2d[i].x = self.field2d[i].camera.X2x(self.X_flat)
                self.field2d[i].x = self.field2d[i].x.reshape(numpy.shape(self.X))
                self.field2d[i].setwinsize(0.5)
-    def iterogation(self,overlap,camnum):
-        """ This function has the purpose to define the square shaped 
-            interogation areas at each point of the grids in both cameras
-            Note that in this function self refers to what in the other 
-            functions of Field3D class would be either self.cam1 or 
-            self.cam2 """
+    def dxdX(self):
+        """Define partial derivatives dx/dX"""
+        dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])
+        na = numpy.newaxis
+        for i in range(len(self.field2d)):
+            self.field2d[i].parX = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,0][na,:].T)
+            self.field2d[i].parY = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,1][na,:].T)
+            self.field2d[i].parZ = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,2][na,:].T)
         
-    
