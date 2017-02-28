@@ -197,18 +197,18 @@ class Field2D(object):
                          
 class Field3D(object):
     def __init__(self,cam):
-        # Assign cameras to grid2d subobject
-        self.grid2d = []
-        self.grid2d.append(type('grid2d',(),{})())
-        self.grid2d.append(type('grid2d',(),{})())
-        self.grid2d[0].cam = cam[0]
-        self.grid2d[1].cam = cam[1]
+        """Assign one Field2D object for each camera. The field2d objects in 
+        the 3D object will later be used for the cross correlations in the
+        different camera planes."""
+        self.field2d = []
+        self.field2d.append(Field2D.__init__(cam[0]))
+        self.field2d.append(Field2D.__init__(cam[1]))
     def corners(self):
+        """Find area that both cameras cover"""
         from numpy import append, array
-        # Find area that both cameras cover
         # Unwrapping
-        cam1 = self.grid2d[0].cam
-        cam2 = self.grid2d[1].cam
+        cam1 = self.field2d[0].camera
+        cam2 = self.field2d[1].camera
         # Limits of each camera
         lim1 = cam1.x2X(array([[0,0,cam1.pixels[0],cam1.pixels[0]],\
                                      [0,cam1.pixels[1],0,cam1.pixels[1]]]))
@@ -237,16 +237,19 @@ class Field3D(object):
         self.X = numpy.zeros((2,res[1],res[0]))
         # Space between two points (in object plane)
         DeltaX = (self.X_int[:,1]-self.X_int[:,0])/res
-        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],self.X_int[0,1],DeltaX[0])
-        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],self.X_int[1,1],DeltaX[1]).reshape(res[1],1)
+        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],\
+                              self.X_int[0,1],DeltaX[0])
+        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],\
+                              self.X_int[1,1],DeltaX[1]).reshape(res[1],1)
         
         # Flattering the grid:
-        X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),numpy.zeros(res[0]*res[1])])
+        X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),\
+                              numpy.zeros(res[0]*res[1])])
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
         for i in range(len(self.grid2d)):
-               self.grid2d[i].x = self.grid2d[i].cam.X2x(X_flat)
-               self.grid2d[i].x.reshape(numpy.shape(self.X))
+               self.field2d[i].x = self.field2d[i].cam.X2x(X_flat)
+               self.field2d[i].x.reshape(numpy.shape(self.X))
     def iterogation(self,overlap,camnum):
         """ This function has the purpose to define the square shaped 
             interogation areas at each point of the grids in both cameras
@@ -254,4 +257,4 @@ class Field3D(object):
             functions of Field3D class would be either self.cam1 or 
             self.cam2 """
         
-        
+    
