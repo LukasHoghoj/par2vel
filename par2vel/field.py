@@ -241,6 +241,7 @@ class Field3D(object):
         """Make a grid that has the resolution res[0] x res[1] and make 
            corresponding camera plane grids"""
         res = numpy.array(res)
+        self.size = res[0]*res[1]
         # Find corners in object plane
         self.corners()
         # Empty matrix for object plane coordinates:
@@ -255,18 +256,31 @@ class Field3D(object):
         # Flattering the grid:
         self.X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),\
                               numpy.zeros(res[0]*res[1])])
+        # Array, that will be used for the iteration and will contain X+dX
+        self.X2 = self.X_flat
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
         for i in range(len(self.field2d)):
                self.field2d[i].x = self.field2d[i].camera.X2x(self.X_flat)
-               self.field2d[i].x = self.field2d[i].x.reshape(numpy.shape(self.X))
+               self.field2d[i].x = self.field2d[i].x.reshape(\
+                                               numpy.shape(self.X))
                self.field2d[i].setwinsize(0.5)
     def dxdX(self):
-        """Define partial derivatives dx/dX"""
+        """Define partial derivatives dx/dX. Using numerical differentiation"""
+        dia = numpy.fill_diagonal
         dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*10**(-3)
+        self.partial = numpy.zeros((4*self.size,3*self.size))
+        j,k = numpy.indices(self.partial.shape)
         na = numpy.newaxis
         for i in range(len(self.field2d)):
-            self.field2d[i].parX = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,0][na,:].T)*10**3
-            self.field2d[i].parY = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,1][na,:].T)*10**3
-            self.field2d[i].parZ = self.field2d[i].camera.dX2dx(self.X_flat,dis[:,2][na,:].T)*10**3
+            parX = self.field2d[i].camera.dX2dx(\
+                                        self.X2,dis[:,0][na,:].T)*10**3
+            self.field2d[i].parY = self.field2d[i].camera.dX2dx(\
+                                        self.X2,dis[:,1][na,:].T)*10**3
+            self.field2d[i].parZ = self.field2d[i].camera.dX2dx(\
+                                        self.X2,dis[:,2][na,:].T)*10**3
+            print(dia(self.partial[::3,2*i::4],parX[0]))
+            self.partial[3*j == 4*k] = parX[0]
+            self.partial[3*j+1 == 4*k] = parX[1]
+            
         
