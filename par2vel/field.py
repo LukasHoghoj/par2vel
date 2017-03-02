@@ -213,6 +213,7 @@ class Field3D(object):
         self.field2d = []
         self.field2d.append(Field2D(cam[0]))
         self.field2d.append(Field2D(cam[1]))
+        
     def corners(self):
         """Find area that both cameras cover"""
         from numpy import append, array
@@ -245,7 +246,7 @@ class Field3D(object):
         # Find corners in object plane
         self.corners()
         # Empty matrix for object plane coordinates:
-        self.X = numpy.zeros((2,res[1],res[0]))
+        self.X = numpy.zeros((3,res[1],res[0]))
         # Space between two points (in object plane)
         DeltaX = (self.X_int[:,1]-self.X_int[:,0])/res
         self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],\
@@ -254,33 +255,49 @@ class Field3D(object):
                               self.X_int[1,1],DeltaX[1]).reshape(res[1],1)
         
         # Flattering the grid:
-        self.X_flat = numpy.array([self.X[0].flatten(),self.X[1].flatten(),\
-                              numpy.zeros(res[0]*res[1])])
-        # Array, that will be used for the iteration and will contain X+dX
-        self.X2 = self.X_flat
+        self.X_flat = self.getX_flat()
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
         for i in range(len(self.field2d)):
                self.field2d[i].x = self.field2d[i].camera.X2x(self.X_flat)
                self.field2d[i].x = self.field2d[i].x.reshape(\
-                                               numpy.shape(self.X))
+                                               numpy.shape(self.X[0:2]))
                self.field2d[i].setwinsize(0.5)
+    
+    def getX_flat(self):
+        """Returns a 3D vector in the Field3D object, inspired by the func
+        from Field2D"""
+        return self.X.reshape((self.X.shape[0],-1))
+        
     def dxdX(self):
         """Define partial derivatives dx/dX. Using numerical differentiation"""
-        dia = numpy.fill_diagonal
         dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*10**(-3)
         self.partial = numpy.zeros((4*self.size,3*self.size))
         j,k = numpy.indices(self.partial.shape)
         na = numpy.newaxis
         for i in range(len(self.field2d)):
             parX = self.field2d[i].camera.dX2dx(\
-                                        self.X2,dis[:,0][na,:].T)*10**3
-            self.field2d[i].parY = self.field2d[i].camera.dX2dx(\
-                                        self.X2,dis[:,1][na,:].T)*10**3
-            self.field2d[i].parZ = self.field2d[i].camera.dX2dx(\
-                                        self.X2,dis[:,2][na,:].T)*10**3
-            print(dia(self.partial[::3,2*i::4],parX[0]))
-            self.partial[3*j == 4*k] = parX[0]
-            self.partial[3*j+1 == 4*k] = parX[1]
-            
-        
+                                        self.X_flat,dis[:,0][na,:].T)*10**3
+            parY = self.field2d[i].camera.dX2dx(\
+                                        self.X_flat,dis[:,1][na,:].T)*10**3
+            parZ = self.field2d[i].camera.dX2dx(\
+                                        self.X_flat,dis[:,2][na,:].T)*10**3
+            self.partial[3*(j-2*i) == 4*k] = parX[0]
+            self.partial[3*(j-1-2*i) == 4*k] = parX[1]
+            self.partial[3*(j-2*i) == 4*(k-1)] = parY[0]
+            self.partial[3*(j-1-2*i) == 4*(k-1)] = parY[1]
+            self.partial[3*(j-2*i) == 4*(k-2)] = parZ[0]
+            self.partial[3*(j-1-2*i) == 4*(k-2)] = parZ[1]
+
+    def cam_dis(self):
+        """ This function sets up a 1D array, that contains the camera 
+        displacements"""
+        dx1_flat = self.field2d[0].getdxflat()
+        dx2_flat = self.field2d[1].getdxflat()
+        self.dx_both = numpy.zeros(4*self.size)
+        i = numpy.indices(self.dx_both.shape)
+        i = i[0]
+        self.dx_both[i%4 == 0] = dx1_flat[0]
+        self.dx_both[(i-1)%4 == 0] = dx1_flat[1]
+        self.dx_both[(i-2)%4 == 0] = dx2_flat[0]
+        self.dx_both[(i-3)%4 == 0] = dx2_flat[1]
