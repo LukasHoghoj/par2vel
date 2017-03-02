@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from par2vel.camera import Scheimpflug
 from par2vel.field import Field3D
 from par2vel.artimage import ArtImage, constUfunc, OseenUfunc
-from par2vel.piv3d import piv_camplane
+from par2vel.piv3d import piv_camplane, stereo
 
 cam = Scheimpflug((512,512))
 cam.set_calibration(np.pi/3,1/1000) #M between 0 & 1
@@ -30,6 +30,8 @@ ai2.generate_images()
 iagrid = Field3D([cam,cam2])
 iagrid.grid([20,25])
 piv_camplane(ai.Im,ai2.Im,iagrid)
+iagrid.dxdX()
+stereo(iagrid)
 """
 plt.figure(1)
 plt.imshow(ai.Im[0], cmap='gray')
