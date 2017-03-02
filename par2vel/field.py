@@ -205,6 +205,45 @@ class Field2D(object):
             self.dx[:,i,j]=meandx
             self.replaced[i,j]=True
                          
+    def invalid_cam(self):
+        """The aim of this function is to find the displacements in the camera
+        plane that are not valid and replacing them with a linear interpolation
+        using the displacements at points lying around the one with a non
+        valid displacement vector"""
+        from numpy import argwhere, isnan, interp
+        i_nan = argwhere(isnan(self.dx))
+        n_points = i_nan.shape[0]
+        for i in range(n_points):
+            if any(i_nan[i,1:3] == 0):
+                if i_nan[i,1] != 0:
+                    x = numpy.array([self.x[1,i_nan[i,1]-1,i_nan[i,2]],\
+                                      self.x[1,i_nan[i,2]+1,i_nan[i,2]]])
+                    dx = numpy.array([self.dx[i_nan[i,0],i_nan[i,1]-1,i_nan[i,2]],\
+                                      self.dx[i_nan[i,0],i_nan[i,1]+1,i_nan[i,2]]])
+                    self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = \
+                               interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x,dx)
+                elif i_nan[i,2] != 0:
+                    x = numpy.array([self.x[0,i_nan[i,1],i_nan[i,2]-1],\
+                                     self.x[0,i_nan[i,1],i_nan[i,2]+1]])
+                    dx = numpy.array([self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]-1],\
+                                      self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]]+1])
+                    self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = \
+                               interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x,dx)
+                else:
+                    raise NameError('There is a nan value in a corne on a camera')
+            else:
+                x1 = numpy.array([self.x[1,i_nan[i,1]-1,i_nan[i,2]],\
+                                  self.x[1,i_nan[i,1]+1,i_nan[i,2]]])
+                dx1 = numpy.array([self.dx[i_nan[i,0],i_nan[i,1]-1,i_nan[i,2]],\
+                                   self.dx[i_nan[i,0],i_nan[i,1]+1,i_nan[i,2]]])
+                x2 = numpy.array([self.x[0,i_nan[i,1],i_nan[i,2]-1],\
+                                  self.x[0,i_nan[i,1],i_nan[i,2]+1]])
+                dx2 = numpy.array([self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]-1],\
+                                   self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]]+1])
+                inter1 = interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x1,dx1)
+                inter2 = interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x2,dx2)
+                self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = (inter1+inter2)/2
+                         
 class Field3D(object):
     def __init__(self,cam):
         """Assign one Field2D object for each camera. The field2d objects in 
@@ -292,6 +331,8 @@ class Field3D(object):
     def cam_dis(self):
         """ This function sets up a 1D array, that contains the camera 
         displacements"""
+        self.field2d[0].invalid_cam()
+        self.field2d[1].invalid_cam()
         dx1_flat = self.field2d[0].getdxflat()
         dx2_flat = self.field2d[1].getdxflat()
         self.dx_both = numpy.zeros(4*self.size)
@@ -301,3 +342,5 @@ class Field3D(object):
         self.dx_both[(i-1)%4 == 0] = dx1_flat[1]
         self.dx_both[(i-2)%4 == 0] = dx2_flat[0]
         self.dx_both[(i-3)%4 == 0] = dx2_flat[1]
+    
+
