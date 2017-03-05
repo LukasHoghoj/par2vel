@@ -19,18 +19,20 @@ def piv_camplane(Im_cam1,Im_cam2,field3d):
 def stereo(field):
     """Uses the results from each camera plane, to find the 3D object plane
     displacements."""
+    from numpy.linalg import lstsq
     # Call function containing partial derivatives for movement at each point
     # in the fields
     field.dxdX()
-    field.cam_dis()
-    field.dX = np.zeros((field.size,3))
     """Probelms with nan values in camera displacements...
     Possible solutions: -mean of two linear interpolations in cam plane (one
     in x and one in y)
     -Let these points out and treat them as outliers
     -????
     """
-    
-    for i in range(field.size):
-        field.dX[i,:] = np.linalg.lstsq(field.partial[i*4:(i+1)*4,i*3:(i+1)*3],field.dx_both[i*4:(i+1)*4])[0]
-        
+    field.cam_dis()
+    dX1 = lstsq(field.partial,field.dx_both)[0] 
+    dX1 = dX1.reshape((field.size,3))
+    field.dX = np.zeros((3,field.res[1],field.res[0]))
+    field.dX[0,:,:] = dX1[:,0].reshape((field.res[1],field.res[0]))
+    field.dX[1,:,:] = dX1[:,1].reshape((field.res[1],field.res[0]))
+    field.dX[2,:,:] = dX1[:,2].reshape((field.res[1],field.res[0]))
