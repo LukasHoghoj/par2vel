@@ -213,24 +213,25 @@ class Field2D(object):
         from numpy import argwhere, isnan, interp
         i_nan = argwhere(isnan(self.dx))
         n_points = i_nan.shape[0]
+        dummy,i_x,i_y = self.x.shape
         for i in range(n_points):
-            if any(i_nan[i,1:3] == 0):
-                if i_nan[i,1] != 0:
+            if any(i_nan[i,1:3] == 0) or (i_nan[i,1] == i_x-1) or (i_nan[i,2] == i_y-1):
+                if (i_nan[i,1] != 0) and (i_nan[i,1] != i_x-1):
                     x = numpy.array([self.x[1,i_nan[i,1]-1,i_nan[i,2]],\
                                       self.x[1,i_nan[i,2]+1,i_nan[i,2]]])
                     dx = numpy.array([self.dx[i_nan[i,0],i_nan[i,1]-1,i_nan[i,2]],\
                                       self.dx[i_nan[i,0],i_nan[i,1]+1,i_nan[i,2]]])
                     self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = \
                                interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x,dx)
-                elif i_nan[i,2] != 0:
+                elif (i_nan[i,2] != 0) and (i_nan[i,2] != i_y-1):
                     x = numpy.array([self.x[0,i_nan[i,1],i_nan[i,2]-1],\
                                      self.x[0,i_nan[i,1],i_nan[i,2]+1]])
                     dx = numpy.array([self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]-1],\
-                                      self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]]+1])
+                                      self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]+1]])
                     self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = \
                                interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x,dx)
                 else:
-                    raise NameError('There is a nan value in a corne on a camera')
+                    raise NameError('There is a nan value in a corner on a camera')
             else:
                 x1 = numpy.array([self.x[1,i_nan[i,1]-1,i_nan[i,2]],\
                                   self.x[1,i_nan[i,1]+1,i_nan[i,2]]])
@@ -239,10 +240,15 @@ class Field2D(object):
                 x2 = numpy.array([self.x[0,i_nan[i,1],i_nan[i,2]-1],\
                                   self.x[0,i_nan[i,1],i_nan[i,2]+1]])
                 dx2 = numpy.array([self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]-1],\
-                                   self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]]+1])
+                                   self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]+1]])
                 inter1 = interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x1,dx1)
                 inter2 = interp(self.x[i_nan[i,0],i_nan[i,1],i_nan[i,2]],x2,dx2)
-                self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = (inter1+inter2)/2
+                if isnan(inter1) != 0 and isnan(inter2) != 0:
+                    self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = (inter1+inter2)/2
+                elif isnan(inter1) == 0:
+                    self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = inter1
+                elif isnan(inter2) == 0:
+                    self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = inter2
                          
 class Field3D(object):
     def __init__(self,cam):
@@ -280,18 +286,18 @@ class Field3D(object):
     def grid(self,res):
         """Make a grid that has the resolution res[0] x res[1] and make 
            corresponding camera plane grids"""
-        res = numpy.array(res)
-        self.size = res[0]*res[1]
+        self.res = numpy.array(res)
+        self.size = self.res[0]*self.res[1]
         # Find corners in object plane
         self.corners()
         # Empty matrix for object plane coordinates:
-        self.X = numpy.zeros((3,res[1],res[0]))
+        self.X = numpy.zeros((3,self.res[1],self.res[0]))
         # Space between two points (in object plane)
-        DeltaX = (self.X_int[:,1]-self.X_int[:,0])/res
+        DeltaX = (self.X_int[:,1]-self.X_int[:,0])/self.res
         self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],\
                               self.X_int[0,1],DeltaX[0])
         self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],\
-                              self.X_int[1,1],DeltaX[1]).reshape(res[1],1)
+                              self.X_int[1,1],DeltaX[1]).reshape(self.res[1],1)
         
         # Flattering the grid:
         self.X_flat = self.getX_flat()
@@ -331,8 +337,10 @@ class Field3D(object):
     def cam_dis(self):
         """ This function sets up a 1D array, that contains the camera 
         displacements"""
+        # Eliminate nan in arrays
         self.field2d[0].invalid_cam()
         self.field2d[1].invalid_cam()
+        
         dx1_flat = self.field2d[0].getdxflat()
         dx2_flat = self.field2d[1].getdxflat()
         self.dx_both = numpy.zeros(4*self.size)
