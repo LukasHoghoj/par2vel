@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from par2vel.camera import Scheimpflug
 from par2vel.field import Field3D
-from par2vel.artimage import ArtImage, constUfunc, OseenUfunc
+from par2vel.artimage import ArtImage, constUfunc, OseenUfunc, X_square, X_U
 from par2vel.piv3d import piv_camplane, stereo
 
 cam = Scheimpflug((512,512))
@@ -22,8 +22,11 @@ cam2.set_calibration(-np.pi/3,1/1000)
 ai = ArtImage(cam)
 ai2 = ArtImage(cam2)
 ai.random_particles(0.02)
-ai.displace_particles(constUfunc(np.array([0.1,0.05,0.005])), 1)
-#ai.displace_particles(OseenUfunc(1,18,[0,0,0.0]), 0.0001)
+# Make new 3D displacement functions!!!
+ai.displace_particles(X_U([0.005,0.002,0.001],[0,0,0]),1)
+# ai.displace_particles(X_square([0.05,0.05,0.05],[0,0,0]),1)
+# ai.displace_particles(constUfunc(np.array([0.1,0.05,0.05])), 1)
+# ai.displace_particles(OseenUfunc(0.1,0.1,[0,0,0.0]), 1)
 ai2.X = ai.X
 ai.generate_images()
 ai2.generate_images()
