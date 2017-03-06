@@ -201,4 +201,23 @@ def OseenUfunc(size,maxU,Xcenter=[0.,0,0]):
         return U
     return Ufunc
         
+def X_square(amp,X_center=[0.,0,0]):
+    """ Description to come"""
+    def Ufunc(t,X):
+        U = numpy.zeros(X.shape,float)
+        U[0,:] = amp[0]*(X[0,:]-X_center[0])**2
+        U[1,:] = amp[1]*(X[1,:]-X_center[1])**2
+        U[2,:] = amp[2]*(X[2,:]-X_center[2])**2
+        return U
+    return Ufunc
 
+def X_U(amp,X_center=[0.,0,0]):
+    """ Description to come"""
+    def Ufunc(t,X):
+        U = numpy.zeros(X.shape,float)
+        U[0,:] = amp[0]*(X[0,:]-X_center[0])
+        U[1,:] = amp[1]*(X[1,:]-X_center[1])
+        U[2,:] = amp[2]*(X[0,:]-X_center[0])*(X[1,:]-X_center[1])
+        return U
+    return Ufunc
+    
