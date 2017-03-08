@@ -35,7 +35,7 @@ iagrid.grid([20,25])
 piv_camplane(ai.Im,ai2.Im,iagrid)
 iagrid.dxdX()
 stereo(iagrid)
-imshowrange = iagrid.X_int.reshape(4)
+imshowrange = iagrid.X_corners_rectangle.reshape(4)
 """
 plt.figure(1)
 plt.imshow(ai.Im[0], cmap='gray')

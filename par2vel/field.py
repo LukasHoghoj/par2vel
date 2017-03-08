@@ -249,15 +249,34 @@ class Field2D(object):
                     self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = inter1
                 elif isnan(inter2) == 0:
                     self.dx[i_nan[i,0],i_nan[i,1],i_nan[i,2]] = inter2
+                           
+    def eliminate_nan(self):
+        """Same as invalid_cam, trying to make it more robust and more 
+        efficient"""
+        
                          
 class Field3D(object):
+    """Field3D class contains all relevant objects to perform stereo PIV these 
+    are:
+        - one Field2D object for each camera in the system
+        - X - the coordinates of the iterogation points
+        - X_corners_rectangle - the coordinates of the corners of the
+    interogation area
+        - partial - the partial derivatives for a displacement in camera plane
+    at each point
+        - dX - the physical 3D displacement at each point
+        
+    Field3D has to be called by a line of type:
+    field  = Field3D([cam1,cam2, ....])
+    """
+        
     def __init__(self,cam):
         """Assign one Field2D object for each camera. The field2d objects in 
         the 3D object will later be used for the cross correlations in the
         different camera planes."""
         self.field2d = []
-        self.field2d.append(Field2D(cam[0]))
-        self.field2d.append(Field2D(cam[1]))
+        for i in range(len(cam)):
+            self.field2d.append(Field2D(cam[i]))
         
     def corners(self):
         """Find area that both cameras cover"""
@@ -267,9 +286,9 @@ class Field3D(object):
         cam2 = self.field2d[1].camera
         # Limits of each camera
         lim1 = cam1.x2X(array([[0,0,cam1.pixels[0],cam1.pixels[0]],\
-                                     [0,cam1.pixels[1],0,cam1.pixels[1]]]))
+                               [0,cam1.pixels[1],0,cam1.pixels[1]]]))
         lim2 = cam2.x2X(array([[0,0,cam2.pixels[0],cam2.pixels[0]],\
-                                     [0,cam2.pixels[1],0,cam2.pixels[1]]]))
+                               [0,cam2.pixels[1],0,cam2.pixels[1]]]))
         # Rearanging the lim arrays
         lim1 = lim1[:,lim1[0,:].argsort()]
         lim2 = lim2[:,lim2[0,:].argsort()]
@@ -278,33 +297,34 @@ class Field3D(object):
         lim2[:,0:2] = lim2[:,lim2[1,0:2].argsort()]
         lim2[:,2:4] = lim2[:,lim2[1,2:4].argsort()+2]
         # The four corners of the common rectangle are now defined
-        self.X_int = array([[max(append(lim1[0,0:2],lim2[0,0:2])),\
+        self.X_corners_rectangle = array([[max(append(lim1[0,0:2],lim2[0,0:2])),\
                                    min(append(lim1[0,2:4],lim2[0,2:4]))],\
                                   [max(append(lim1[1,[0,2]],lim2[1,[0,2]])),\
                                    min(append(lim1[1,[1,3]],lim2[1,[1,3]]))]])
         
     def grid(self,res):
         """Make a grid that has the resolution res[0] x res[1] and make 
-           corresponding camera plane grids"""
+           corresponding camera plane grids
+           The function has to be called by the """
         self.res = numpy.array(res)
-        self.size = self.res[0]*self.res[1]
+        self.size = self.res[0] * self.res[1]
         # Find corners in object plane
         self.corners()
         # Empty matrix for object plane coordinates:
         self.X = numpy.zeros((3,self.res[1],self.res[0]))
         # Space between two points (in object plane)
-        DeltaX = (self.X_int[:,1]-self.X_int[:,0])/self.res
-        self.X[0,:,:] = numpy.arange(DeltaX[0]/2+self.X_int[0,0],\
-                              self.X_int[0,1],DeltaX[0])
-        self.X[1,:,:] = numpy.arange(DeltaX[1]/2+self.X_int[1,0],\
-                              self.X_int[1,1],DeltaX[1]).reshape(self.res[1],1)
+        DeltaX = (self.X_corners_rectangle[:,1] - \
+                  self.X_corners_rectangle[:,0]) / self.res
+        grid = numpy.mgrid[0:res[1],0:res[0]]
+        self.X[0,:,:] = (grid[1,:,:] + 1/2) * DeltaX[0] + \
+                         self.X_corners_rectangle[0,0]
+        self.X[1,:,:] = (grid[0,:,:] + 1/2) * DeltaX[1] + \
+                         self.X_corners_rectangle[1,0]
         
-        # Flattering the grid:
-        self.X_flat = self.getX_flat()
         # Converting to obejct plane grid coordinates to image plane 
         # coordinates
         for i in range(len(self.field2d)):
-               self.field2d[i].x = self.field2d[i].camera.X2x(self.X_flat)
+               self.field2d[i].x = self.field2d[i].camera.X2x(self.getX_flat())
                self.field2d[i].x = self.field2d[i].x.reshape(\
                                                numpy.shape(self.X[0:2]))
                self.field2d[i].setwinsize(0.5)
@@ -315,25 +335,26 @@ class Field3D(object):
         return self.X.reshape((self.X.shape[0],-1))
         
     def dxdX(self):
-        """Define partial derivatives dx/dX. Using numerical differentiation"""
-        dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*10**(-3)
-        self.partial = numpy.zeros((4*self.size,3*self.size))
-        j,k = numpy.indices(self.partial.shape)
+        """Define partial derivatives dx/dX. Using numerical differentiation
+        The partial derivatives are return in a 4 dimentional array:
+        Field3D.partial[field2d#,object dimension (dX,dY,dZ),camera dimenstion(
+        dx,dy),ni,nj]"""
+        from numpy import zeros
+        dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*1e-3
         na = numpy.newaxis
+        self.partial = zeros((len(self.field2d),3,2,self.res[1],self.res[0]))
         for i in range(len(self.field2d)):
-            parX = self.field2d[i].camera.dX2dx(\
-                                        self.X_flat,dis[:,0][na,:].T)*10**3
-            parY = self.field2d[i].camera.dX2dx(\
-                                        self.X_flat,dis[:,1][na,:].T)*10**3
-            parZ = self.field2d[i].camera.dX2dx(\
-                                        self.X_flat,dis[:,2][na,:].T)*10**3
-            self.partial[3*(j-2*i) == 4*k] = parX[0]
-            self.partial[3*(j-1-2*i) == 4*k] = parX[1]
-            self.partial[3*(j-2*i) == 4*(k-1)] = parY[0]
-            self.partial[3*(j-1-2*i) == 4*(k-1)] = parY[1]
-            self.partial[3*(j-2*i) == 4*(k-2)] = parZ[0]
-            self.partial[3*(j-1-2*i) == 4*(k-2)] = parZ[1]
-
+            self.partial[i,0,:,:,:] = (self.field2d[i].camera.dX2dx(\
+                                    self.getX_flat(),dis[:,0][na,:].T)*1e+3\
+                                    ).reshape((2,self.res[1],self.res[0]))
+            self.partial[i,1,:,:,:] = (self.field2d[i].camera.dX2dx(\
+                                    self.getX_flat(),dis[:,1][na,:].T)*1e+3\
+                                    ).reshape((2,self.res[1],self.res[0]))
+            self.partial[i,2,:,:,:] = (self.field2d[i].camera.dX2dx(\
+                                    self.getX_flat(),dis[:,2][na,:].T)*1e+3\
+                                    ).reshape((2,self.res[1],self.res[0]))
+ 
+            
     def cam_dis(self):
         """ This function sets up a 1D array, that contains the camera 
         displacements"""
