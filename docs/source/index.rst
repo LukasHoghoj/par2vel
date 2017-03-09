@@ -23,7 +23,8 @@ Contents:
 
    overview
    camera
-   field   
+   field
+   stereo   
 
 
 Indices and tables
