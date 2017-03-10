@@ -20,7 +20,9 @@ def stereo(field):
     """Uses the results from each camera plane, to find the 3D object plane
     displacements."""
     from numpy.linalg import lstsq
-    from numpy import zeros, indices
+    from scipy import sparse
+    from scipy.sparse.linalg import lsqr
+    from numpy import zeros, mgrid
     # Call function containing partial derivatives for movement at each point
     # in the fields
     field.dxdX()
@@ -30,8 +32,8 @@ def stereo(field):
     -Let these points out and treat them as outliers
     -????
     """
-    part = zeros((4*field.size,3*field.size))
-    j,k = indices(part.shape) 
+    part = sparse.lil_matrix((4 * field.size , 3 * field.size))
+    j,k = mgrid[0 : 4 * field.size , 0 : 3 * field.size] 
     for i in range(len(field.field2d)):
         part[3*(j-2*i) == 4*k] = field.partial[i,0,:,:,:].reshape((field.X.shape[0]-1,-1))[0]
         part[3*(j-1-2*i) == 4*k] = field.partial[i,0,:,:,:].reshape((field.X.shape[0]-1,-1))[1]
@@ -40,7 +42,7 @@ def stereo(field):
         part[3*(j-2*i) == 4*(k-2)] = field.partial[i,2,:,:,:].reshape((field.X.shape[0]-1,-1))[0]
         part[3*(j-1-2*i) == 4*(k-2)] = field.partial[i,2,:,:,:].reshape((field.X.shape[0]-1,-1))[1]
     field.cam_dis()
-    dX1 = lstsq(part,field.dx_both)[0] 
+    dX1 = lsqr(part,field.dx_both)[0] 
     dX1 = dX1.reshape((field.size,3))
     field.dX = np.zeros((3,field.res[1],field.res[0]))
     field.dX[0,:,:] = dX1[:,0].reshape((field.res[1],field.res[0]))
