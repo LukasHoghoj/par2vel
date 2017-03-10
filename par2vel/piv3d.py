@@ -8,6 +8,7 @@ import scipy
 from par2vel.field import Field3D, Field2D
 from par2vel.camera import Camera
 from par2vel.piv2d import fftdx
+import time
 
 def piv_camplane(Im_cam1,Im_cam2,field3d):
     """piv_camplane(Im_11,Im_12,Im_21,Im_22,field3d)
@@ -42,7 +43,9 @@ def stereo(field):
         part[3*(j-2*i) == 4*(k-2)] = field.partial[i,2,:,:,:].reshape((field.X.shape[0]-1,-1))[0]
         part[3*(j-1-2*i) == 4*(k-2)] = field.partial[i,2,:,:,:].reshape((field.X.shape[0]-1,-1))[1]
     field.cam_dis()
+    t = time.time()
     dX1 = lsqr(part,field.dx_both)[0] 
+    print("Time to solve the equation %s seconds" % (time.time()-t))
     dX1 = dX1.reshape((field.size,3))
     field.dX = np.zeros((3,field.res[1],field.res[0]))
     field.dX[0,:,:] = dX1[:,0].reshape((field.res[1],field.res[0]))
