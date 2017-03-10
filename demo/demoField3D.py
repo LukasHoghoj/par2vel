@@ -7,7 +7,10 @@ Created on Tue Feb 28 11:52:31 2017
 
 Demonstration on how to perform stereo PIV
 """
-
+# Get time to run program (tool to optimize)
+import time
+t_start = time.time()
+#### start ####
 import numpy as np
 import matplotlib.pyplot as plt
 from par2vel.camera import Scheimpflug
@@ -33,8 +36,10 @@ ai2.generate_images()
 iagrid = Field3D([cam,cam2])
 iagrid.grid([20,25])
 piv_camplane(ai.Im,ai2.Im,iagrid)
+t_stereo = time.time()
 iagrid.dxdX()
 stereo(iagrid)
+print("Execution time for stereo part was %s seconds" % (time.time()-t_stereo))
 imshowrange = iagrid.X_corners_rectangle.reshape(4)
 """
 plt.figure(1)
@@ -59,3 +64,4 @@ plt.imshow(iagrid.dX[2,:,:],cmap = 'cool',interpolation = 'bilinear' ,\
            extent=imshowrange,origin='lower')
 plt.colorbar(orientation = 'horizontal')
 plt.show()
+print("Execution time was %s seconds" % (time.time()-t_start))
