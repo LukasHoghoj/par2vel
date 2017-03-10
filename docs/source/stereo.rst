@@ -25,13 +25,18 @@ PIV is performed, and the following overdefined equation is solved:
 
 .. math::
 
-    \left[\begin{array}{c}\Delta x_1\\\Delta y_1\\\Delta x_2\\\Delta y_2\end{array}\right] = \left[\begin{array}{ccc}
-    \frac{\partial x_1}{\partial X}&\frac{\partial x_1}{\partial Y}&\frac{\partial x_1}{\partial Z}\\
-    \frac{\partial y_1}{\partial X}&\frac{\partial y_1}{\partial Y}&\frac{\partial y_1}{\partial Z}\\
-    \frac{\partial x_2}{\partial X}&\frac{\partial x_2}{\partial Y}&\frac{\partial x_2}{\partial Z}\\
-    \frac{\partial y_2}{\partial X}&\frac{\partial y_2}{\partial Y}&\frac{\partial y_2}{\partial Z}
-                \end{array}\right]\cdot\left[\begin{array}{c}\Delta X\\\Delta Y\\\Delta Z
-                \end{array}\right]
+    \left[\begin{array}{c}\Delta x_1\\\Delta y_1\\\Delta x_2\\\Delta y_2\end{array}
+    \right] = \left[\begin{array}{ccc}
+    \frac{\partial x_1}{\partial X}&\frac{\partial x_1}{\partial Y}&
+    \frac{\partial x_1}{\partial Z}\\
+    \frac{\partial y_1}{\partial X}&\frac{\partial y_1}{\partial Y}&
+    \frac{\partial y_1}{\partial Z}\\
+    \frac{\partial x_2}{\partial X}&\frac{\partial x_2}{\partial Y}&
+    \frac{\partial x_2}{\partial Z}\\
+    \frac{\partial y_2}{\partial X}&\frac{\partial y_2}{\partial Y}&
+    \frac{\partial y_2}{\partial Z}
+    \end{array}\right]\cdot\left[\begin{array}{c}\Delta X\\\Delta Y\\\Delta Z
+    \end{array}\right]
 
 The ``lstsq`` mean square method algorythm from the ``numpy.linalg`` package is used
 to solve these overdefined equations. The total displacements are returned in a 
