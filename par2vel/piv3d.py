@@ -43,7 +43,7 @@ def stereo(field):
     field.cam_dis()
     t = time.time()
     dX1 = lstsq(part,field.dx_both)[0] 
-    print("Time to solve the equation %s seconds" %s (time.time()-t))
+    print("Time to solve the equation %s seconds" % (time.time()-t))
     dX1 = dX1.reshape((field.size,3))
     field.dX = np.zeros((3,field.res[1],field.res[0]))
     field.dX[0,:,:] = dX1[:,0].reshape((field.res[1],field.res[0]))
