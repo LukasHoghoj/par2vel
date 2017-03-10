@@ -33,9 +33,11 @@ def gauss_interpolate1(x):
     assert (x[1] >= x[0]) and (x[1] >= x[2]), 'Peak must be at center element'
     # avoid log(0) or divide 0 error
     try:
+        if any(x <= 0):
+            raise ValueError
         r = log(x)
         ifrac = (r[0] - r[2]) / (2 * r[0] - 4 * r[1] + 2 * r[2])
-    except:   # use centroid instead
+    except ValueError:   # use centroid instead
         print("using centroid")
         ifrac = (x[2] - x[0]) / sum(x)
     return ifrac
