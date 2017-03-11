@@ -10,6 +10,10 @@ from par2vel.artimage import X_U
 
 class StereoTest(unittest.TestCase):
 	def testStereo(self):
+		"""This unittest makes a displacement in the obect plane,
+		transforms it to both cameras and then uses the stereo 
+		function to find the displacement in object plane, both
+		vectors are then compared"""
 		cam1 = Scheimpflug((512,512))
 		cam2 = Scheimpflug((512,512))
 		cam1.set_calibration(numpy.pi/3,1/200)
