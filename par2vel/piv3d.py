@@ -8,7 +8,7 @@ import scipy
 from par2vel.field import Field3D, Field2D
 from par2vel.camera import Camera
 from par2vel.piv2d import fftdx
-import time 
+import time
 
 def piv_camplane(Im_cam1,Im_cam2,field3d):
     """piv_camplane(Im_11,Im_12,Im_21,Im_22,field3d)
@@ -21,7 +21,9 @@ def stereo(field):
     """Uses the results from each camera plane, to find the 3D object plane
     displacements."""
     from numpy.linalg import lstsq
-    from numpy import zeros, indices
+    from scipy import sparse
+    from scipy.sparse.linalg import lsqr
+    from numpy import zeros, mgrid
     # Call function containing partial derivatives for movement at each point
     # in the fields
     field.dxdX()
@@ -31,8 +33,8 @@ def stereo(field):
     -Let these points out and treat them as outliers
     -????
     """
-    part = zeros((4*field.size,3*field.size))
-    j,k = indices(part.shape) 
+    part = sparse.lil_matrix((4 * field.size , 3 * field.size))
+    j,k = mgrid[0 : 4 * field.size , 0 : 3 * field.size] 
     for i in range(len(field.field2d)):
         part[3*(j-2*i) == 4*k] = field.partial[i,0,:,:,:].reshape((field.X.shape[0]-1,-1))[0]
         part[3*(j-1-2*i) == 4*k] = field.partial[i,0,:,:,:].reshape((field.X.shape[0]-1,-1))[1]
@@ -42,7 +44,7 @@ def stereo(field):
         part[3*(j-1-2*i) == 4*(k-2)] = field.partial[i,2,:,:,:].reshape((field.X.shape[0]-1,-1))[1]
     field.cam_dis()
     t = time.time()
-    dX1 = lstsq(part,field.dx_both)[0] 
+    dX1 = lsqr(part,field.dx_both)[0]
     print("Time to solve the equation %s seconds" % (time.time()-t))
     dX1 = dX1.reshape((field.size,3))
     field.dX = np.zeros((3,field.res[1],field.res[0]))

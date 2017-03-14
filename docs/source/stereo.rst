@@ -20,8 +20,12 @@ has been created, the ``stereo`` function can be called; the function takes the
 ``Field3D`` object as input. The field's ``dxdX()`` function will first be called in
 order to compute the :ref:`Partial derivatives`. 
 
-The partial 12 partial derivatives are set up in a matrix for each point, where stereo
-PIV is performed, and the following overdefined equation is solved:
+^^^^^^^^^^^^^^^
+Data structure
+^^^^^^^^^^^^^^^
+
+In order to solve for the 3D displacement vectors in the object plane, the following
+overdefined equation has to be solved for each point in the grid:
 
 .. math::
 
@@ -38,7 +42,13 @@ PIV is performed, and the following overdefined equation is solved:
     \end{array}\right]\cdot\left[\begin{array}{c}\Delta X\\\Delta Y\\\Delta Z
     \end{array}\right]
 
-The ``lstsq`` mean square method algorythm from the ``numpy.linalg`` package is used
-to solve these overdefined equations. The total displacements are returned in a 
-:math:`3\times n_x\times n_y` 3D matrix, that is stored as ``dX`` in the ``Field3D``
-object.
+A :math:`(4\cdot n_x\cdot n_y)\times(3\cdot n_x\cdot n_y)` sparse matrix is created, that
+contains the :math:`4\times3` matrices from the equation above in it's diagonal (one for
+each interogation point). All vectors containing the displacements in the camera
+planes (see left hand side from the equation above) are also stacked together; in the
+same order as the system matrices. As the sparse matrix has been created with the
+``scipy.sparse.lil_matrix`` command, the ``scipy.sparse.linalg.lsqr`` least square
+solver has to be used (the first array of the returned data is the solution to
+the equation). The data is then rearanged in such way that it the displacement
+array ``dX`` in the ``Field3D`` object takes the form of a 
+:math:`3\times n_y\times n_x` 3D-matrix.
