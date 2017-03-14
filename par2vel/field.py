@@ -314,6 +314,7 @@ class Field3D(object):
         self.dx_both = numpy.zeros(4*self.size)
         i = numpy.indices(self.dx_both.shape)
         i = i[0]
+        # Assign a 4*nx*ny vector with all displacements in the camera planes:
         self.dx_both[i%4 == 0] = dx1_flat[0]
         self.dx_both[(i-1)%4 == 0] = dx1_flat[1]
         self.dx_both[(i-2)%4 == 0] = dx2_flat[0]
