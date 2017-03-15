@@ -514,3 +514,35 @@ def saveimage(image,filename):
     im8bit=(255*imwork).astype(numpy.uint8)
     im=Image.fromstring('L',(image.shape[1],image.shape[0]),im8bit.tostring())
     im.save(filename)
+
+
+class Pinhole(object):
+    """ Camera model for pinhole model"""
+    def __init__(self, newshape = None):
+        Camera.__init__(self,newshape)
+        # Define camera model
+        self.model = 'Pinhole'
+
+
+"""
+    def set_calibration(self,calib):
+        
+        
+    def set_physical_size(self):
+        
+
+    def read_camera(self,filename):
+
+
+    def save_camera(self,filename):
+
+
+    def X2x(self,X):
+
+    def x2X(self,x):
+
+    def dX2dx(self, X, dX):
+
+
+    def dx2dX(self, x, dx):
+"""
