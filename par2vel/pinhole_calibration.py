@@ -64,3 +64,31 @@ def Rotation_T(x_n, X_p):
     R[2] = RT[8 : 12]
 
     return R
+
+def Cam_Matrix(x_p , x_d):
+    """Function that optimizes the camera matrix, such that it fits the best
+    """
+    assert x_p.shape == x_d.shape
+    len = x_p.shape[1]
+    lhs = np.zeros(len * 2)
+    i = np.indices(len * 2)
+    rhs = np.zeros((len * 2 , 4))
+    lhs[i % 2 == 0] = x_p[0 , :]
+    lhs[i % 2 == 1] = x_p[1 , :]
+    rhs[: , 0][i % 2 == 0] = x_d[0 , :]
+    rhs[: , 0][i % 2 == 1] = 0
+    rhs[: , 1][i % 2 == 0] = 0
+    rhs[: , 1][i % 2 == 1] = x_d[1 , :]
+    rhs[: , 2][i % 2 == 0] = 1
+    rhs[: , 2][i % 2 == 1] = 0
+    rhs[: , 3][i % 2 == 0] = 0
+    rhs[: , 3][i % 2 == 1] = 1
+
+    f = lstsq(rhs , lhs)[0]
+    Cam_M = np.zeros((2,3))
+    Cam_M[0 , 0] = f[0]
+    Cam_M[1 , 1] = f[1]
+    Cam_M[0 , 2] = f[2]
+    Cam_M[1 , 2] = f[3]
+
+    return Cam_M
