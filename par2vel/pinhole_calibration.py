@@ -2,13 +2,28 @@ import numpy as np
 from numpy.linalg import lstsq
 
 
-def Calibrate_Pinhole(X, x):
+def Calibrate_Pinhole(X_p, x, C):
     """Function to calibrate camera with respect to the pinhole model. The 
     function takes the input Calibrate_Pinhole([X,Y,Z],[x,y]); where X,Y and Z
     are the coordinates in object space and x and y are their respectevely 
     corresponding coordinates in the image plane"""
-
-
+    assert X_p.shape[1] == x.shape[1]
+    len = X_p.shape[1]
+    x_d = np.zeros(x.shape)
+    x_d[0 , :] = (x[0 , :] - C[0 , 2]) / C[0 , 0]
+    x_d[1 , :] = (x[1 , :] - C[1 , 2]) / C[1 , 1]
+    R = Rotation_T(x_d , X)
+    X_C = np.dot(R , vstack((X_p , np.ones(len))))
+    x_n = np.zeros((len , 2))
+    x_n[0] = X_C[0]/X_C[2]
+    x_n[1] = X_C[1] / X_C[2]
+    k1 , k2 , k3 , p1 , p2 = Distortion(x_d , x_n)
+    r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
+    x_d[0 , :] = x_n[0 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + 2 * \
+                p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
+    x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
+                 (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
+    
 
 def Distortion(x_d, x_n):
     """Function returns the distortion cooeficients for given distorted and 
