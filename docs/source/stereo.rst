@@ -42,13 +42,8 @@ overdefined equation has to be solved for each point in the grid:
     \end{array}\right]\cdot\left[\begin{array}{c}\Delta X\\\Delta Y\\\Delta Z
     \end{array}\right]
 
-A :math:`(4\cdot n_x\cdot n_y)\times(3\cdot n_x\cdot n_y)` sparse matrix is created, that
-contains the :math:`4\times3` matrices from the equation above in it's diagonal (one for
-each interogation point). All vectors containing the displacements in the camera
-planes (see left hand side from the equation above) are also stacked together; in the
-same order as the system matrices. As the sparse matrix has been created with the
-``scipy.sparse.lil_matrix`` command, the ``scipy.sparse.linalg.lsqr`` least square
-solver has to be used (the first array of the returned data is the solution to
-the equation). The data is then rearanged in such way that it the displacement
-array ``dX`` in the ``Field3D`` object takes the form of a 
+The :math:`4\times3` matrix in the equation above, just as the left hand side vector,
+are set up for each point in the grid. The ``numpy.linalg`` function ``lstsq`` is used
+to solve the above equation seperately for each point in the grid. The results are saved
+in the displacement array ``dX`` in the ``Field3D`` object, which takes the form of a 
 :math:`3\times n_y\times n_x` 3D-matrix.
