@@ -16,7 +16,8 @@ import matplotlib.pyplot as plt
 from par2vel.camera import Scheimpflug
 from par2vel.field import Field3D
 from par2vel.artimage import ArtImage, constUfunc, OseenUfunc, X_square, X_U
-from par2vel.piv3d import piv_camplane, stereo
+from par2vel.piv2d import fftdx
+#from par2vel.piv3d import piv_camplane, stereo
 
 cam = Scheimpflug((512,512))
 cam.set_calibration(np.pi/3,1/1000) #M between 0 & 1
@@ -35,10 +36,11 @@ ai.generate_images()
 ai2.generate_images()
 iagrid = Field3D([cam,cam2])
 iagrid.grid([20,25])
-piv_camplane(ai.Im,ai2.Im,iagrid)
+fftdx(ai.Im[0],ai.Im[1],iagrid.field2d[0])
+fftdx(ai2.Im[0],ai2.Im[1],iagrid.field2d[1])
 t_stereo = time.time()
 iagrid.dxdX()
-stereo(iagrid)
+iagrid.stereo()
 print("Execution time for stereo part was %s seconds" % (time.time()-t_stereo))
 imshowrange = iagrid.X_corners_rectangle.reshape(4)
 """
