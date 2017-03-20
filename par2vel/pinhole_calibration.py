@@ -2,18 +2,23 @@ import numpy as np
 from numpy.linalg import lstsq
 
 
-def Calibrate_Pinhole(X_p, x, C):
+def Calibrate_Pinhole(X, x, C):
     """Function to calibrate camera with respect to the pinhole model. The 
     function takes the input Calibrate_Pinhole([X,Y,Z],[x,y]); where X,Y and Z
     are the coordinates in object space and x and y are their respectevely 
     corresponding coordinates in the image plane"""
-    assert X_p.shape[1] == x.shape[1]
+    assert X.shape[1] == x.shape[1]
+    # Maximum number of iterations:
+    ite_max = 1000
+    # Maximum error:
+    err_max = 0.5
+    X_p = vstack((X , np.ones(len)))
     len = X_p.shape[1]
     x_d = np.zeros(x.shape)
     x_d[0 , :] = (x[0 , :] - C[0 , 2]) / C[0 , 0]
     x_d[1 , :] = (x[1 , :] - C[1 , 2]) / C[1 , 1]
     R = Rotation_T(x_d , X)
-    X_C = np.dot(R , vstack((X_p , np.ones(len))))
+    X_C = np.dot(R , X_p)
     x_n = np.zeros((len , 2))
     x_n[0] = X_C[0]/X_C[2]
     x_n[1] = X_C[1] / X_C[2]
@@ -23,7 +28,25 @@ def Calibrate_Pinhole(X_p, x, C):
                 p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
     x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
                  (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
-    
+    x_p = np.dot(C , x_d)
+    # Compute average error:
+    err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[0]) ** 2))
+    ite = 0
+    while err >= err_max or ite < ite_max:
+        C = Cam_Matrix(x , x_d)
+        
+        # Recompute through the system to find the error:
+        X_C = np.dot(R ,X_p)
+        x_n = np.zeros((len , 2))
+        x_n[0] = X_C[0]/X_C[2]
+        x_n[1] = X_C[1] / X_C[2]
+        r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
+        x_d[0 , :] = x_n[0 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + 2 * \
+                p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
+        x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
+                 (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
+        x_p = np.dot(C , x_d)
+        err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[0]) ** 2))
 
 def Distortion(x_d, x_n):
     """Function returns the distortion cooeficients for given distorted and 
