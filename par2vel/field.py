@@ -292,17 +292,17 @@ class Field3D(object):
         from numpy import zeros
         dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*1e-3
         na = numpy.newaxis
-        self.partial = zeros((len(self.field2d),3,2,self.shape[1],self.shape[0]))
+        self.partial = zeros((len(self.field2d),3,2,self.shape[0],self.shape[1]))
         for i in range(len(self.field2d)):
             self.partial[i,0,:,:,:] = (self.field2d[i].camera.dX2dx(\
                                     self.getX_flat(),dis[:,0][na,:].T)*1e+3\
-                                    ).reshape((2,self.shape[1],self.shape[0]))
+                                    ).reshape((2,self.shape[0],self.shape[1]))
             self.partial[i,1,:,:,:] = (self.field2d[i].camera.dX2dx(\
                                     self.getX_flat(),dis[:,1][na,:].T)*1e+3\
-                                    ).reshape((2,self.shape[1],self.shape[0]))
+                                    ).reshape((2,self.shape[0],self.shape[1]))
             self.partial[i,2,:,:,:] = (self.field2d[i].camera.dX2dx(\
                                     self.getX_flat(),dis[:,2][na,:].T)*1e+3\
-                                    ).reshape((2,self.shape[1],self.shape[0]))
+                                    ).reshape((2,self.shape[0],self.shape[1]))
  
             
     def cam_dis(self):
@@ -324,30 +324,33 @@ class Field3D(object):
         """Uses the results from each camera plane, to find the 3D object plane
         displacements."""
         from numpy.linalg import lstsq
-        from scipy import sparse
-        from scipy.sparse.linalg import lsqr
         from numpy import zeros, mgrid
         import time
+        # Check if camera displacements exist:
+        for i in range(len(self.field2d)):
+            try:
+                self.field2d[i].dx
+            except NameError:
+                disp('Using FFTDX function to find camera displacements')
+                fftdx(self.field2d[i].Im[0],self.field2d[i].Im[1],self.field2d[i])
         # Call function containing partial derivatives for movement at each point
         # in the fields
         self.dxdX()
-        part = sparse.lil_matrix((4 * self.size , 3 * self.size))
-        j,k = mgrid[0 : 4 * self.size , 0 : 3 * self.size] 
-        for i in range(len(self.field2d)):
-            part[3*(j-2*i) == 4*k] = self.partial[i,0,:,:,:].reshape((self.X.shape[0]-1,-1))[0]
-            part[3*(j-1-2*i) == 4*k] = self.partial[i,0,:,:,:].reshape((self.X.shape[0]-1,-1))[1]
-            part[3*(j-2*i) == 4*(k-1)] = self.partial[i,1,:,:,:].reshape((self.X.shape[0]-1,-1))[0]
-            part[3*(j-1-2*i) == 4*(k-1)] = self.partial[i,1,:,:,:].reshape((self.X.shape[0]-1,-1))[1]
-            part[3*(j-2*i) == 4*(k-2)] = self.partial[i,2,:,:,:].reshape((self.X.shape[0]-1,-1))[0]
-            part[3*(j-1-2*i) == 4*(k-2)] = self.partial[i,2,:,:,:].reshape((self.X.shape[0]-1,-1))[1]
-        self.cam_dis()
+        part = zeros((4, 3))
+        dx = zeros(4)
+        self.dX = zeros((3 , self.shape[0] , self.shape[1]))
         t = time.time()
-        dX1 = lsqr(part,self.dx_both)[0]
+        for i in range(self.shape[0]):
+            for j in range(self.shape[1]):
+                part[[ 0 , 2 ] , 0] = self.partial[: , 0 , 0 , i , j]
+                part[[ 1 , 3 ] , 0] = self.partial[: , 0 , 1 , i , j]
+                part[[ 0 , 2 ] , 1] = self.partial[: , 1 , 0 , i , j]
+                part[[ 1 , 3 ] , 1] = self.partial[: , 1 , 1 , i , j]
+                part[[ 0 , 2 ] , 2] = self.partial[: , 2 , 0 , i , j]
+                part[[ 1 , 3 ] , 2] = self.partial[: , 2 , 1 , i , j]
+                dx[0 : 2] = self.field2d[0].dx[: , i , j]
+                dx[2 : 4] = self.field2d[1].dx[: , i , j]
+                self.dX[: , i , j] = lstsq(part , dx)[0]
         print("Time to solve the equation %s seconds" % (time.time()-t))
-        dX1 = dX1.reshape((self.size,3))
-        self.dX = zeros((3,self.shape[0],self.shape[1]))
-        self.dX[0,:,:] = dX1[:,0].reshape((self.shape[0],self.shape[1]))
-        self.dX[1,:,:] = dX1[:,1].reshape((self.shape[0],self.shape[1]))
-        self.dX[2,:,:] = dX1[:,2].reshape((self.shape[0],self.shape[1]))
     
 
