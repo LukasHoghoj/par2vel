@@ -522,8 +522,14 @@ class Pinhole(object):
         Camera.__init__(self,newshape)
         # Define camera model
         self.model = 'Pinhole'
-    def manual_calibration(self):
-        R = np.array([[]])
+    def manual_calibration(self, R, dis, C):
+        self.R = R
+        self.k1 = dis[0]
+        self.k2 = dis[1]
+        self.k3 = dis[2]
+        self.p1 = dis[3]
+        self.p2 = dis[4]
+        self.C = C
     """
     def set_calibration(self,calib):
         
@@ -539,16 +545,19 @@ class Pinhole(object):
     def X2x(self,X):
         """Transformation from object to camera plane, input is a 3D vector (X,Y,Z),
         output a 2D vector (x,y)"""
-        X_C = np.dot(self.R , X)
-        x_n = np.zeros((len , 2))
+        import numpy as np
+        len = X.shape[1]
+        X_C = np.dot(self.R , np.vstack((X, np.ones(len))))
+        x_n = np.zeros((2, len))
         x_n[0] = X_C[0]/X_C[2]
         x_n[1] = X_C[1] / X_C[2]
+        x_d = np.zeros((2, len))
         r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
         x_d[0 , :] = x_n[0 , :] * (1 + self.k1 * r + self.k2 * r ** 2 + self.k3 * r ** 3)\
                      + 2 * self.p1 * x_n[0 , :] * x_n[1 , :] + self.p2 * (r + 2 * x_n[0 , :] ** 2)
         x_d[1 , :] = x_n[1 , :] * (1 + self.k1 * r + self.k2 * r ** 2 + self.k3 * r ** 3)\
                      + self.p1 * (r + 2 * x_n[1 , :] ** 2) + 2 * self.p2 * x_n[0 , :] * x_n[1 , :]
-        x= np.dot(self.C , x_d)
+        x= np.dot(self.C , np.vstack((x_d, np.ones(len))))
         return x
 
 #    def x2X(self,x):
