@@ -8,31 +8,44 @@ def Calibrate_Pinhole(X, x, C):
     are the coordinates in object space and x and y are their respectevely
     corresponding coordinates in the image plane"""
     assert X.shape[1] == x.shape[1]
+    """ If loop is implemented:
     # Maximum number of iterations:
     ite_max = 1000
     # Maximum error:
     err_max = 0.5
+    """
+    # Length of given data
     len = X.shape[1]
+    # Add ones as 4th dimension to physical coordinates
     X_p = np.vstack((X, np.ones(len)))
     x_d = np.zeros(x.shape)
+    # Compute normalized coordinates corrected for distorted with camera
+    # matrix guess
     x_d[0, :] = (x[0, :] - C[0, 2]) / C[0, 0]
     x_d[1, :] = (x[1, :] - C[1, 2]) / C[1, 1]
+    # Find roation and translation matrix, that fit's the best for transforming
+    # physical coordinates to nondistorted camera plane
     R = Rotation_T(x_d, X)
+    # Find resulting distorted normalized coordinates
     X_C = np.dot(R, X_p)
     x_n = np.zeros((2, len))
     x_n[0] = X_C[0]/X_C[2]
     x_n[1] = X_C[1] / X_C[2]
+    # Find distortion constants that fit the best
     k1, k2, k3, p1, p2 = Distortion(x_d, x_n)
+    # Correct for distortion with the new constants
     r = x_n[0, :] ** 2 + x_n[1, :] ** 2
     x_d[0, :] = x_n[0, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + 2 * \
                 p1 * x_n[0, :] * x_n[1, :] + p2 * (r + 2 * x_n[0, :] ** 2)
     x_d[1, :] = x_n[1, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
                  (r + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
+    # Find new camera matrix, by using the real camera coordinates and the normalized
+    # coordinates, that are corrected for distortion
     C = Cam_Matrix(x, x_d)
     x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
     # Compute average error:
     err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
-    print(err)
+    print(np.max(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2)))
     """
     ite = 0
     while err >= err_max or ite < ite_max:
