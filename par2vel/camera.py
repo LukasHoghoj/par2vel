@@ -522,6 +522,7 @@ class Pinhole(object):
         Camera.__init__(self,newshape)
         # Define camera model
         self.model = 'Pinhole'
+
     def manual_calibration(self, R, dis, C):
         self.R = R
         self.k1 = dis[0]
@@ -530,10 +531,44 @@ class Pinhole(object):
         self.p1 = dis[3]
         self.p2 = dis[4]
         self.C = C
-    """
-    def set_calibration(self,calib):
-        
-        
+
+    def set_calibration(self, x, X, filename = False):
+        """Calibrate camera and save calibration if a filename is in the input
+        """
+        C_guess  = np.array([[self.f, 0, self.shape[0] / 2],[0, self.f, self.shape[1] / 2]])
+        self.R, dis, self.C = Calibrate_Pinhole(X, x, C_guess)
+        self.k1 = dis[0]
+        self.k2 = dis[1]
+        self.k3 = dis[2]
+        self.p1 = dis[3]
+        self.p2 = dis[4]
+        if filename != False:
+            import shelve
+            file = shelve.open(filename)
+            file.clear()
+            file['R'] = R
+            file['distortion'] = dis
+            file['C'] = C
+            file.close()
+    
+    def read_calibration(self, filename):
+        """This function reads the calibration file, that can is created if a filename
+        input exists in the set_calibration function
+        """
+        import shelve
+        try:
+            file = shelve.open(filename)
+            self.C = file['C']
+            self.R = file['R']
+            dis = file['distortion']
+            self.k1 = dis[0]
+            self.k2 = dis[1]
+            self.k3 = dis[2]
+            self.p1 = dis[3]
+            self.p2 = dis[4]
+        except:
+            raise NameError('File does not have the right format')
+    """    
     def set_physical_size(self):
         
 
