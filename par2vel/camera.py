@@ -564,7 +564,7 @@ class Pinhole(object):
             self.k1 = dis[0]
             self.k2 = dis[1]
             self.k3 = dis[2]
-            self.p1 = dis[3]
+            self.p1 = dis[3]
             self.p2 = dis[4]
         except:
             raise NameError('File does not have the right format')
@@ -595,7 +595,38 @@ class Pinhole(object):
         x= np.dot(self.C , np.vstack((x_d, np.ones(len))))
         return x
 
-#    def x2X(self,x):
+    def x2X(self, x):
+        """Transformation from camera plane to object space. As the equation would be 
+        underdefined, it is assumed that X[2] = 0"""
+        import numpy as np
+        from numpy.linalg import solve
+        # Create empty solution vector (3rd dimension will always stay 0 as assumed)
+        X = np.zeros((3,x.shape[1]))
+        # Vector for the derivatives
+        disp = np.array([[1, 0, 0], [0, 1, 0]])*1e-10
+        # First transform the image coordinates to physical plane in order to set up a guess
+        x_d = np.zeros(x.shape)
+        x_d[0, :] = (x[0, :] - self.C[0, 2]) / self.C[0, 0]
+        x_d[1, :] = (x[1, :] - self.C[1, 2]) / self.C[1, 1]
+        for i in range(x.shape[1]):
+            lhs = x_d[:, i] * self.R[2, 3] - self.R[0 : 2, 3]
+            rhs = self.R[0 : 2, 0 : 2]
+            rhs[0, :] = rhs[0, :] - self.R[2, 0:2] * x_d[0, i]
+            rhs[1, :] = rhs[1, :] - self.R[2, 0:2] * x_d[1, i]
+            XY_guess = solve(rhs, lhs)
+            # Compute error:
+            dif = x[:, i] - self.X2x(XY_guess)
+            while np.sqrt(dif.dot(dif)) >1e-9:
+                # Find Jacobian matrix at guess position
+                J = self.dX2dx(XY_guess, dis)*1e+10
+                # Set up left hand side for the equation
+                lhs = dif + J.dot(XY_guess)
+                # Solve the equation dif + J*XY_guess = J*XY_new
+                XY_guess = solve(J, lhs)
+                # Compute new error
+                dif = x[:, i] - self.X2x(XY_guess)
+            X[0 : 2, i] = XY_guess
+        return X
 
     def dX2dx(self, X, dX):
         """Transform displacements in obejct plane to image plane
@@ -603,4 +634,9 @@ class Pinhole(object):
         dx = self.X2x(X + 0.5 * dX) - self.X2x(X - 0.5 * dX)
         return dx
 
-#    def dx2dX(self, x, dx):
+    def dx2dX(self, x, dx):
+        """Transform displacements in camera plane to image plane,
+        assuming that dX[2] = 0 i.e. there is no displacement in the
+        Z direction"""
+        dX = self.x2X(x + 0.5 * dx) - self.x2X(x - 0.5 * dx)
+        return dX

@@ -13,7 +13,7 @@ class Calibrationtest(unittest.TestCase):
         """
         cam = Scheimpflug((512,512))
         cam.set_calibration(np.pi/3,1/100)
-        X = np.mgrid[-2:2:0.05,-2:2:0.05,-0.001:0.001:0.0005]
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
         print(X.shape)
         X = X.reshape((3,-1))
         x = cam.X2x(X)
