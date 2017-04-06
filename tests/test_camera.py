@@ -179,8 +179,93 @@ class testScheimpflug(unittest.TestCase):
         self.assertAlmostEqual(cam2.M, 0.1)
         os.remove(filename)
 
+class testPinhole(unittest.TestCase):
+    def test_X2x(self):
+        import numpy as np
+        cam  = Pinhole((512,512))
+        R = np.array([[1, 2, 3, 4],
+                      [5, 6, 7, 8],
+                      [9, 10, 11,12]])
+        dis = np.array([ 1e-2, 2e-2, 3e-2, 4e-2, 5e-2])
+        C = np.array([[6e-2, 0, 256],
+                      [0, 6e-2, 256]])
+        cam.manual_calibration(R, dis, C)
+        X = np.array([[0], [0], [0]])
+        x_result = np.array([[256.0237374], [256.0454749]])
+        x = cam.X2x(X)
+        self.assertAlmostEqual((x - x_result).sum(), 0)
+        X = np.array([[1], [1], [1]])
+        x_result = np.array([[256.0168076817485], [256.041324462342]])
+        x = cam.X2x(X)
+        self.assertAlmostEqual((x - x_result).sum(), 0)
 
+    def testCalibration(self):
+        """This test is primarily testing the calibration for the 
+        pinhole model, however, it is also testing some functions of
+        the Pinhole camera model as they are necessary for this unittest
+        """
+        import numpy as np
+        cam = Scheimpflug((512,512))
+        cam.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cam.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        pincam = Pinhole((512,512))
+        pincam.set_calibration(x, X)
+        X_test = np.array([[2, 1.1, -0.1, 1.5],[0.2, -1.1, 0, 0.4],[0.0005, -0.0003, -0.0009, 0.0009]])
+        x_sch = cam.X2x(X_test)
+        x_pin = pincam.X2x(X_test)
+        zero = np.zeros(4)
+        diff = np.sqrt((x_sch[0] - x_pin[0]) ** 2 + (x_sch[1] - x_pin[1]) ** 2)
+        #numpy.testing.assert_array_almost_equal(diff,zero,decimal = 10)
+        np.testing.assert_array_almost_equal(x_sch,x_pin,decimal = 8)
+    """    
+    def test_x2X(self):
+        import numpy as np
+        cam  = Pinhole((512,512))
+        R = np.array([[1.0, 2.0, 3.0, 4.0],
+                      [5.0, 6.0, 7.0, 8.0],
+                      [9.0, 10.0, 1.10, 1.0]])
+        dis = np.array([ 1.0e-2, 2.0e-2, 3.0e-2, 4.0e-2, 5.0e-2])
+        C = np.array([[6e-2, 0, 256.0],
+                      [0, 6e-2, 256.0]])
+        cam.manual_calibration(R, dis, C)
+        X = np.array([[0,0], [0,0], [0,0]])
+        x = cam.X2x(X)
+        print(x)
+        X_computed = cam.x2X(x)
+        self.assertAlmostEqual(abs(X - X_computed).sum(),0)
+        X = np.array([[1], [0], [0]])
+        x = cam.X2x(X)
+        X_computed = cam.x2X(x)
+        self.assertAlmostEqual(abs(X - X_computed).sum(),0)
+    """
+    def test_x2X(self):
+        import numpy as np
+        # Setup a realistic camera based on Scheimpflug
+        cam = Scheimpflug((512,512))
+        cam.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cam.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        pincam = Pinhole((512,512))
+        pincam.set_calibration(x, X)
+        # Bigger distortion
+        pincam.k1 = -1.0e-7
+        pincam.k2 = -2.0e-7
+        pincam.k3 = 0
+        pincam.k4 = -4.0e-8
+        pincam.k5 = -5.0e-8
+        X = np.array([[0,1.1,0.5,1], [0,1,-1,-2], [0,0,0,0]])
+        x = pincam.X2x(X)
+        X_computed = pincam.x2X(x)
+        print(X_computed)
+        self.assertAlmostEqual(abs(X - X_computed).sum(),0)
+        
+      
 
 if __name__=='__main__':
     numpy.set_printoptions(precision=4)
-    unittest.main()
+    unittest.main(exit = False)
