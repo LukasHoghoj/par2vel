@@ -753,7 +753,7 @@ class Pinhole(Camera):
 
     def save_camera(self,filename):
     """
-    def X2x(self,X):
+    def X2x(self,X, x_solve = 0):
         """Transformation from object to camera plane, input is a 3D vector (X,Y,Z),
         output a 2D vector (x,y)"""
         import numpy as np
@@ -766,7 +766,7 @@ class Pinhole(Camera):
         x_n = np.zeros((2, len))
         if any(X_C[2] == 0):
             pos = np.argwhere(X_C[2] == 0)
-            X_C[2, pos] = 1e-10
+            X_C[2, pos] = 0.01
             print('Correction reqired in X2x')
         x_n[0] = X_C[0] / X_C[2]
         x_n[1] = X_C[1] / X_C[2]
@@ -779,7 +779,7 @@ class Pinhole(Camera):
         x= np.dot(self.C , np.vstack((x_d, np.ones(len))))
         if a == 1:
             x = x.reshape(2)
-        return x
+        return x - x_solve
 
     def x2X(self, x):
         """Transformation from camera plane to object space. As the equation would be 
@@ -789,6 +789,9 @@ class Pinhole(Camera):
         import sympy
         import numdifftools as nd
         import scipy.optimize as opt
+        print(self.R)
+        print(self.C)
+        print(self.k1,self.k2,self.k3,self.p1,self.p2)
         # Create empty solution vector (3rd dimension will always stay 0 as assumed)
         X = np.zeros((3,x.shape[1]))
         # Vector for the derivatives
@@ -819,7 +822,7 @@ class Pinhole(Camera):
             a = 0
             print(dif)
             print('whilestart')
-            XY_guess = opt.fsolve(self.X2x,XY_guess[0:2])
+            XY_guess = opt.fsolve(self.X2x,XY_guess[0:2],x[:,i])
             """
             while np.sqrt(dif.dot(dif.T)) >1e-5:
                 print('i',i)
@@ -864,6 +867,9 @@ class Pinhole(Camera):
             print('x',self.X2x(XY_guess))
             X[0 : 2, i] = XY_guess[0 : 2]
         return X
+
+    def X2x__(self,x_):
+        return self.X2x - x_
 
     def part(self, X, n = 8):
         """Compute the partial derivatives at a point"""
