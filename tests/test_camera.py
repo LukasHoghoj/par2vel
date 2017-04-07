@@ -241,6 +241,7 @@ class testPinhole(unittest.TestCase):
         X_computed = cam.x2X(x)
         self.assertAlmostEqual(abs(X - X_computed).sum(),0)
     """
+
     def test_x2X(self):
         import numpy as np
         # Setup a realistic camera based on Scheimpflug
@@ -252,12 +253,14 @@ class testPinhole(unittest.TestCase):
         C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
         pincam = Pinhole((512,512))
         pincam.set_calibration(x, X)
+        """
         # Bigger distortion
         pincam.k1 = -1.0e-7
         pincam.k2 = -2.0e-7
-        pincam.k3 = 0
-        pincam.k4 = -4.0e-8
-        pincam.k5 = -5.0e-8
+        pincam.k3 = -3.0e-7
+        pincam.p1 = -4.0e-8
+        pincam.p2 = -5.0e-8
+        """
         X = np.array([[0,1.1,0.5,1], [0,1,-1,-2], [0,0,0,0]])
         x = pincam.X2x(X)
         X_computed = pincam.x2X(x)
