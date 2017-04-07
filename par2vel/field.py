@@ -289,20 +289,22 @@ class Field3D(object):
         The partial derivatives are return in a 4 dimentional array:
         Field3D.partial[field2d#,object dimension (dX,dY,dZ),camera dimenstion(
         dx,dy),ni,nj]"""
-        from numpy import zeros
+        from numpy import zeros, arange
         dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*1e-3
         na = numpy.newaxis
+        # Array with indices, that will be used to decompose the array containing
+        # the Jacobi matrices
+        ind = arange(self.size * 3)
+        # Creating zero array, that will contain the partial derivatives:
         self.partial = zeros((len(self.field2d),3,2,self.shape[0],self.shape[1]))
         for i in range(len(self.field2d)):
-            self.partial[i,0,:,:,:] = (self.field2d[i].camera.dX2dx(\
-                                    self.getX_flat(),dis[:,0][na,:].T)*1e+3\
-                                    ).reshape((2,self.shape[0],self.shape[1]))
-            self.partial[i,1,:,:,:] = (self.field2d[i].camera.dX2dx(\
-                                    self.getX_flat(),dis[:,1][na,:].T)*1e+3\
-                                    ).reshape((2,self.shape[0],self.shape[1]))
-            self.partial[i,2,:,:,:] = (self.field2d[i].camera.dX2dx(\
-                                    self.getX_flat(),dis[:,2][na,:].T)*1e+3\
-                                    ).reshape((2,self.shape[0],self.shape[1]))
+            # Finding the jacobi matrix for each point
+            part = self.field2d[i].camera.part(self.getX_flat())
+            # Redistribution of the partial derivatives, first by dX, dY and dZ
+            # and then reshaping them back into the grid
+            self.partial[i,0,:,:,:] = part[:, ind % 3 == 0].reshape(2,self.shape[0],self.shape[1])
+            self.partial[i,1,:,:,:] = part[:, ind % 3 == 1].reshape(2,self.shape[0],self.shape[1])
+            self.partial[i,2,:,:,:] = part[:, ind % 3 == 2].reshape(2,self.shape[0],self.shape[1])
  
             
     def cam_dis(self):
