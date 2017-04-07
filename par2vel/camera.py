@@ -155,7 +155,14 @@ class Camera(object):
         Z direction"""
         dX = self.x2X(x + 0.5 * dx) - self.x2X(x - 0.5 * dx)
         return dX
-
+        
+    def part(self, X, n = 8):
+        """Compute the partial derivatives at a point"""
+        from numpy import eye, repeat, tile
+        len = X.shape[1]
+        disp =  tile(eye(3) * 10**(-n), len)
+        dxdX = (self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp) - self.X2x(repeat(X, 3).reshape(3, 3 * len))) *  10 ** n
+        return dxdX
 
 class One2One(Camera):
     """Camera model that assumes object coordinates = image coordinates"""
@@ -789,9 +796,6 @@ class Pinhole(Camera):
         import sympy
         import numdifftools as nd
         import scipy.optimize as opt
-        print(self.R)
-        print(self.C)
-        print(self.k1,self.k2,self.k3,self.p1,self.p2)
         # Create empty solution vector (3rd dimension will always stay 0 as assumed)
         X = np.zeros((3,x.shape[1]))
         # Vector for the derivatives
@@ -801,95 +805,12 @@ class Pinhole(Camera):
         x_p = np.vstack((x,np.ones((1,x.shape[1]))))
         x_d = (inv(np.vstack((self.C,np.array([0,0,1])))).dot(x_p))[0 : 2, :]
         base_rhs =  self.R[0 : 2, 0 : 2]
-        func = lambda v: self.X2x(np.vstack((v,0)))
-        J2 = nd.Jacobian(func)
         for i in range(x.shape[1]):
-            print(i)
-            print(x[:,i])
             lhs = x_d[:, i] * self.R[2, 3] - self.R[0 : 2, 3]
             rhs = np.zeros((2,2))
             rhs[0, :] = base_rhs[0, :] - self.R[2, 0:2] * x_d[0, i]
             rhs[1, :] = base_rhs[1, :] - self.R[2, 0:2] * x_d[1, i]
-            XY_guess = np.vstack((solve(rhs, lhs).reshape(2,1),0))
-            ini_guess = np.vstack((solve(rhs, lhs).reshape(2,1),0))
-            #XY_guess = np.array([[0],[0],[0]])
-            # Compute error:
-            print(XY_guess)
-            #print('x', self.X2x(XY_guess).T)
-            dif = self.X2x(XY_guess).T - x[:, i]
-            #dif = np.array([1,1])
-            #print(dif)
-            a = 0
-            print(dif)
-            print('whilestart')
-            XY_guess = opt.fsolve(self.X2x,XY_guess[0:2],x[:,i])
-            """
-            while np.sqrt(dif.dot(dif.T)) >1e-5:
-                print('i',i)
-                print('a',a)
-                # Jacobian matrix at the guess position
-                #J = self.dX2dx(np.hstack((XY_guess, XY_guess)), disp) * 1e+3
-                J = self.part(XY_guess)[0:2, 0:2]
-                print(J)
-                print('J2',J2(XY_guess[0:2]))
-                J = J2(XY_guess[0:2])
-                #print(inv(J))   
-                #print('J',J,XY_guess)
-                # Compute new guess
-                #print(XY_guess[0:2]-np.array([[1],[2]]))
-                #print(inv(J).dot(dif.T))
-                try:
-                    XY_guess[0:2] = XY_guess[0:2] + inv(J).dot(dif.T).reshape(2,1)
-                
-                except:
-                    print('cv')
-                    J = J + np.eye(2)
-                    print(J)
-                    XY_guess[0:2] = XY_guess[0:2] - pinv(J).dot(dif.T).reshape(2,1)
-                
-                a = a+1
-                    
-
-                #print('b',(inv(J).dot(dif.T)))
-                try:
-                    XY_guess[0:2] = XY_guess[0:2] - solve(J,dif.reshape((2,1)))
-                except:
-                    XY_guess[0:2] = XY_guess[0:2] + (pinv(J).dot(dif.T))
-            
-                # Compute new error
-                dif = self.X2x(XY_guess).T - x[:, i]
-                print(dif)
-                print('ini')
-                print(ini_guess)
-                print(XY_guess)
-                """
-            print('whileend')
-            print('x',self.X2x(XY_guess))
-            X[0 : 2, i] = XY_guess[0 : 2]
+            XY_guess = solve(rhs, lhs).reshape(2,1)
+            X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess[0:2],x[:,i])
         return X
 
-    def X2x__(self,x_):
-        return self.X2x - x_
-
-    def part(self, X, n = 8):
-        """Compute the partial derivatives at a point"""
-        from numpy import eye, repeat, tile
-        len = X.shape[1]
-        disp =  tile(eye(3) * 10**(-n), len)
-        
-        print('----------------')
-        print('n')
-        print(n)
-        #print((repeat(X, 3).reshape(3, 3 * len) + disp))
-        #print((repeat(X, 3).reshape(3, 3 * len) ))
-        print('X+dX-X')
-        print((repeat(X, 3).reshape(3, 3 * len) + disp)-((repeat(X, 3).reshape(3, 3 * len) )))
-        print('x+dx')
-        print(self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp))
-        print('x')
-        print(self.X2x(repeat(X, 3).reshape(3, 3 * len)))
-        print('x+dx-x')
-        print((self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp) - self.X2x(repeat(X, 3).reshape(3, 3 * len))))
-        print('----------------')
-        dxdX = (self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp) - self.X2x(repeat(X, 3).reshape(3, 3 * len))) *  10 ** n
-        return dxdX
