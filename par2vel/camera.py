@@ -155,7 +155,7 @@ class Camera(object):
         Z direction"""
         dX = self.x2X(x + 0.5 * dx) - self.x2X(x - 0.5 * dx)
         return dX
-        
+
     def part(self, X, n = 8):
         """Compute the partial derivatives at a point"""
         from numpy import eye, repeat, tile
@@ -590,7 +590,6 @@ class Pinhole(Camera):
         x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
         # Compute average error:
         err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
-        print(np.max(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2)))
         """
         ite = 0
         while err >= err_max or ite < ite_max:
@@ -709,7 +708,7 @@ class Pinhole(Camera):
 
         return Cam_M
 
-    def manual_calibration(self, R, dis, C):
+    def set_calibration(self, R, dis, C):
         self.R = R
         self.k1 = dis[0]
         self.k2 = dis[1]
@@ -718,48 +717,65 @@ class Pinhole(Camera):
         self.p2 = dis[4]
         self.C = C
 
-    def set_calibration(self, x, X, filename = False):
+    def calibration(self, x, X, filename = False):
         """Calibrate camera and save calibration if a filename is in the input
         """
         from numpy import array
         C_guess  = array([[self.focal_length, 0, self.shape[0] / 2],[0, self.focal_length, self.shape[1] / 2]])
         self.Calibrate_Pinhole(X, x, C_guess)
         if filename != False:
-            import shelve
-            dis = array([self.k1, self.k2, self.k3, self.p1, self.p2])
-            file = shelve.open(filename)
-            file.clear()
-            file['R'] = R
-            file['distortion'] = dis
-            file['C'] = C
-            file.close()
+            self.save_camera(filename)
     
-    def read_calibration(self, filename):
+    def save_camera(self, filename):
+        """Save camera definition and/or calibration data"""
+        from numpy import array
+        f = open(filename,'w')
+        f.write('# par2vel camera file\n')
+        f.write("model = '{:}'\n".format(self.model))
+        # first save defined keywords
+        self.save_keywords(f)
+        # save calibration
+        print('Calibration Pinhole (Rotation matrix, distortion coefficients & Camera matrix)', file = f)
+        for row in self.R:
+            for number in row:
+                print(repr(number), end=' ', file = f)
+            print(file=f)
+        dis = array([self.k1, self.k2, self.k3, self.p1, self.p2])
+        for number in dis:
+            print(repr(number), end = ' ', file = f)
+        print(file = f)
+        for row in self.C:
+            for number in row:
+                print(repr(number), end = ' ', file = f)
+            print(file = f)
+        f.close()
+        
+    def read_camera(self, filename):
         """This function reads the calibration file, that can is created if a filename
         input exists in the set_calibration function
         """
-        import shelve
-        try:
-            file = shelve.open(filename)
-            self.C = file['C']
-            self.R = file['R']
-            dis = file['distortion']
-            self.k1 = dis[0]
-            self.k2 = dis[1]
-            self.k3 = dis[2]
-            self.p1 = dis[3]
-            self.p2 = dis[4]
-        except:
-            raise NameError('File does not have the right format')
-    """    
-    def set_physical_size(self):
-        
+        lines = open(filename).readlines()
+        nlines = len(lines)
+        n = 0
+        while n < nlines:
+            line = lines[n]
+            # check for calibration data
+            if line.lower().find('calibration') == 0:
+                if line.lower().find('pinhole') > 0:
+                    R = numpy.array([
+                        [float(x) for x in lines[n+1].split()],
+                        [float(x) for x in lines[n+2].split()],
+                        [float(x) for x in lines[n+3].split()] ])
+                    dis = numpy.array([float(x) for x in lines[n+4].split()])
+                    C = numpy.array([[float(x) for x in lines[n+5].split()],
+                                     [float(x) for x in lines[n+6].split()]])
+                    self.set_calibration(R,dis,C)
+                    n += 6                
+            else:
+                self.set_keyword(line)
+            n += 1
+        self.shape = self.pixels
 
-    def read_camera(self,filename):
-
-
-    def save_camera(self,filename):
-    """
     def X2x(self,X, x_solve = 0):
         """Transformation from object to camera plane, input is a 3D vector (X,Y,Z),
         output a 2D vector (x,y)"""
@@ -792,9 +808,7 @@ class Pinhole(Camera):
         """Transformation from camera plane to object space. As the equation would be 
         underdefined, it is assumed that X[2] = 0"""
         import numpy as np
-        from numpy.linalg import solve, inv, pinv
-        import sympy
-        import numdifftools as nd
+        from numpy.linalg import solve, inv
         import scipy.optimize as opt
         # Create empty solution vector (3rd dimension will always stay 0 as assumed)
         X = np.zeros((3,x.shape[1]))
@@ -813,4 +827,3 @@ class Pinhole(Camera):
             XY_guess = solve(rhs, lhs).reshape(2,1)
             X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess[0:2],x[:,i])
         return X
-
