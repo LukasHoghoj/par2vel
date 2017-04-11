@@ -514,29 +514,6 @@ class Scheimpflug(Camera):
         to displacement in image coordinates"""
         dx = self.X2x(X + 0.5 * dX) - self.X2x(X - 0.5 * dX)
         return dx
-                
-def readimage(filename):
-    """ Read grayscale image from file """
-    im=Image.open(filename)
-    s=im.tostring()
-    if im.mode=='L':        # 8 bit image
-        gray=numpy.fromstring(s,numpy.uint8)/255.0
-    elif im.mode=='I;16':   # 16 bit image (assume 12 bit grayscale)
-        gray=numpy.fromstring(s,numpy.uint16)/4095.0
-    else:
-        raise ImageFormatNotSupported
-    gray=numpy.reshape(gray,(im.size[1],im.size[0]))        
-    return gray
-
-def saveimage(image,filename):
-    """ Save float array (values from 0 to 1) as 8 bit grayscale image """
-    imwork=image.copy()
-    imwork[imwork<0]=0
-    imwork[imwork>1]=1
-    im8bit=(255*imwork).astype(numpy.uint8)
-    im=Image.fromstring('L',(image.shape[1],image.shape[0]),im8bit.tostring())
-    im.save(filename)
-
 
 class Pinhole(Camera):
     """ Camera model for pinhole model"""
@@ -844,8 +821,6 @@ class Pinhole(Camera):
         import scipy.optimize as opt
         # Create empty solution vector (3rd dimension will always stay 0 as assumed)
         X = np.zeros((3,x.shape[1]))
-        # Vector for the derivatives
-        disp = np.array([[1, 0], [0, 1], [0, 0]]) * 1e-3
         # First transform the image coordinates to physical plane (assuming no distortion)
         # in order to set up a guess
         x_p = np.vstack((x,np.ones((1,x.shape[1]))))
@@ -859,3 +834,141 @@ class Pinhole(Camera):
             XY_guess = solve(rhs, lhs).reshape(2,1)
             X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess[0:2],x[:,i])
         return X
+
+class Third_order(Camera):
+    """Third order camera model"""
+    def __init__(self, newshape = None):
+        Camera.__init__(self,newshape)
+        # Define camera model
+        self.model = 'Third_order'
+    
+    def set_calibration(self, calib):
+        """Set calibration from given 2x13 array, that is given as input to
+        this function"""
+        assert calib.shape == (2,20)
+        self.calib = calib
+
+    def calibration(self, x, X, filename = False):
+        """Calibrates the third order camera model, by using the input camera
+        and object plane coordinates"""
+        from scipy.sparse import lil_matrix
+        from scipy.sparse.linalg import lsqr
+        from numpy import zeros, arange, array, tile, ones
+        assert x.shape[1] == X.shape[1]
+        assert X.shape[0] == 3
+        assert x.shape[0] == 2
+        len = x.shape[1]
+        # Empty sparse matrix for the right hand side of the equation system,
+        # which will give the calibration array
+        rhs = zeros((2 * len, 40))
+        # Empty array for left hand side
+        lhs = zeros(2 * len)
+        # Indices to assign values to the sparse matrix and the array
+        index = arange(2 * len)
+        # Assign image plane coordinates to left hand side of the equation system
+        lhs[index % 2 == 0] = x[0]
+        lhs[index % 2 == 1] = x[1]
+        # Setting up the 3rd order values in a 20D array
+        third = array([X[0], X[1], X[2], X[0] * X[1], X[0] * X[2], X[1] * X[2],
+                       X[0] ** 2, X[1] ** 2, X[2] ** 2, X[0] ** 2  * X[1], X[0] ** 2
+                       * X[2], X[1] ** 2 * X[0], X[1] ** 2 * X[2], X[2] ** 2 * X[0],
+                       X[2] ** 2 * X[1], X[0] ** 3, X[1] ** 3, X[2] ** 3, X[0] * X[1]
+                       * X[2], ones(len)]).T
+        rhs[:, 0 : 20][index % 2 == 0] = third
+        rhs[:, 20 : 40][index % 2 == 1] = third
+        calib = lsqr(rhs, lhs)[0].reshape(2,20)
+        self.set_calibration(calib)
+        if filename != False:
+            self.save_camera(filename)
+
+    def save_camera(self, filename):
+        """Save camera definition and/or calibration data"""
+        from numpy import array
+        f = open(filename,'w')
+        f.write('# par2vel camera file\n')
+        f.write("model = '{:}'\n".format(self.model))
+        # first save defined keywords
+        self.save_keywords(f)
+        # save calibration
+        print('Calibration third order', file = f)
+        for row in self.calib:
+            for number in row:
+                print(repr(number), end=' ', file = f)
+            print(file=f)
+
+    def read_camera(self, filename):
+        """This function reads the calibration file, that can is created if a filename
+        input exists in the set_calibration function
+        """
+        lines = open(filename).readlines()
+        nlines = len(lines)
+        n = 0
+        while n < nlines:
+            line = lines[n]
+            # check for calibration data
+            if line.lower().find('calibration') == 0:
+                if line.lower().find('third order') > 0:
+                    calib = numpy.array([
+                        [float(x) for x in lines[n+1].split()],
+                        [float(x) for x in lines[n+2].split()] ])
+                    self.set_calibration(calib)
+                    n += 2
+            else:
+                self.set_keyword(line)
+            n += 1
+        self.shape = self.pixels
+
+    def X2x(self, X, dif = 0):
+        """Transform object plane coordinates to image plane, if a 2D array is
+        given as input it is assumed that Z = 0 for all points in the array.
+        The optional argument dif can be used to get the difference to a given 
+        point in image plane"""
+        from numpy import vstack, zeros, array, dot, ndim, ones
+        assert (X.shape[0] == 2 and ndim(X.shape) == 1) or X.shape[0] == 3
+        a = 0
+        if X.shape[0] == 2 and ndim(X.shape) == 1:
+            X = vstack((X.reshape(2,1),0))
+            a = 1
+        len = X.shape[1]
+        X_coeff = array([X[0], X[1], X[2], X[0] * X[1], X[0] * X[2], X[1] * X[2],
+                       X[0] ** 2, X[1] ** 2, X[2] ** 2, X[0] ** 2  * X[1], X[0] ** 2
+                       * X[2], X[1] ** 2 * X[0], X[1] ** 2 * X[2], X[2] ** 2 * X[0],
+                       X[2] ** 2 * X[1], X[0] ** 3, X[1] ** 3, X[2] ** 3, X[0] * X[1]
+                       * X[2], ones(len)])
+        x = self.calib.dot(X_coeff)
+        if a == 1:
+            x = x.reshape(2)
+        return x - dif
+
+    def x2X(self, x):
+        """Transform image plane coordinates to object plane, assuming Z = 0"""
+        import numpy as np
+        import scipy.optimize as opt
+        # Create empty solution vector (3rd dimension will always stay 0 as assumed)
+        X = np.zeros((3,x.shape[1]))
+        XY_guess = np.zeros(2)
+        for i in range(x.shape[1]):
+            X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess,x[:,i])
+        return X
+
+def readimage(filename):
+    """ Read grayscale image from file """
+    im=Image.open(filename)
+    s=im.tostring()
+    if im.mode=='L':        # 8 bit image
+        gray=numpy.fromstring(s,numpy.uint8)/255.0
+    elif im.mode=='I;16':   # 16 bit image (assume 12 bit grayscale)
+        gray=numpy.fromstring(s,numpy.uint16)/4095.0
+    else:
+        raise ImageFormatNotSupported
+    gray=numpy.reshape(gray,(im.size[1],im.size[0]))        
+    return gray
+
+def saveimage(image,filename):
+    """ Save float array (values from 0 to 1) as 8 bit grayscale image """
+    imwork=image.copy()
+    imwork[imwork<0]=0
+    imwork[imwork>1]=1
+    im8bit=(255*imwork).astype(numpy.uint8)
+    im=Image.fromstring('L',(image.shape[1],image.shape[0]),im8bit.tostring())
+    im.save(filename)
