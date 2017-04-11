@@ -262,7 +262,56 @@ class testPinhole(unittest.TestCase):
         X_computed = pincam.x2X(x)
         self.assertAlmostEqual(abs(X - X_computed).sum(),0)
         
-      
+class testThirdOrder(unittest.TestCase):
+    def testCalibrationX2x(self):
+        """This test is primarily testing the calibration for the 
+        pinhole model, however, it is also testing some functions of
+        the Pinhole camera model as they are necessary for this unittest
+        """
+        import numpy as np
+        cams = Scheimpflug((512,512))
+        cams.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cams.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        cam = Third_order((512,512))
+        cam.calibration(x, X)
+        X_test = np.array([[2, 1.1, -0.1, 1.5],[0.2, -1.1, 0, 0.4],[0.0005, -0.0003, -0.0009, 0.0009]])
+        x_sch = cam.X2x(X_test)
+        x_com = cam.X2x(X_test)
+        zero = np.zeros(4)
+        diff = np.sqrt((x_sch[0] - x_com[0]) ** 2 + (x_sch[1] - x_com[1]) ** 2)
+        numpy.testing.assert_array_almost_equal(diff,zero,decimal = 10)
+
+    def test_save_read(self):
+        import numpy as np
+        camw  = Third_order((512,512))
+        cali = np.tile(np.arange(20),(2,1))
+        camw.set_calibration(cali)
+        filename = 'temporary6.cam'
+        camw.save_camera(filename)
+        camr = Third_order()
+        camr.read_camera(filename)
+        self.assertAlmostEqual((camw.calib - camr.calib).sum(),0)
+        os.remove(filename)
+
+    def test_x2X(self):
+        import numpy as np
+        cams = Scheimpflug((512,512))
+        cams.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cams.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        cam = Third_order((512,512))
+        cam.calibration(x, X)
+        X = np.array([[1, -1, 0.5, 0], [0, 1, -2, 1], [0, 0, 0, 0]])
+        x = cams.X2x(X)
+        X_com = cam.x2X(x)
+        zero = np.zeros(4)
+        diff = np.sqrt((X[0] - X_com[0]) ** 2 + (X[1] - X_com[1]) ** 2)
+        numpy.testing.assert_array_almost_equal(diff,zero,decimal = 2)
 
 if __name__=='__main__':
     numpy.set_printoptions(precision=4)
