@@ -161,7 +161,8 @@ class Camera(object):
         from numpy import eye, repeat, tile
         len = X.shape[1]
         disp =  tile(eye(3) * 10**(-n), len)
-        dxdX = (self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp) - self.X2x(repeat(X, 3).reshape(3, 3 * len))) *  10 ** n
+        dxdX = (self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp) -\
+                self.X2x(repeat(X, 3).reshape(3, 3 * len))) *  10 ** n
         return dxdX
 
 class One2One(Camera):
@@ -544,21 +545,52 @@ class Pinhole(Camera):
         # Define camera model
         self.model = 'Pinhole'
 
+    def dis_method(self, x_n, dis, dif = 0):
+        assert x_n.shape[0] == 2
+        from numpy import vstack, zeros, ndim
+        a = 0
+        if x_n.shape[0] == 2 and ndim(x_n) == 1:
+            x_n = x_n.reshape(2,1)
+            a = 1
+        len = x_n.shape[1]
+        k1, k2, k3, p1, p2 = dis
+        x_d = zeros((2, len))
+        r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
+        x_d[0 , :] = x_n[0 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
+                     + 2 * p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
+        x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
+                     + p1 * (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
+        if a == 1:
+            x_d = x_d.reshape(2)
+        return x_d - dif
+    
     def Calibrate_Pinhole(self,X, x, C):
         """Function to calibrate camera with respect to the pinhole model. The
         function takes the input Calibrate_Pinhole([X,Y,Z],[x,y]); where X,Y and Z
         are the coordinates in object space and x and y are their respectevely
         corresponding coordinates in the image plane"""
         import numpy as np
+        from numpy.linalg import inv
         from scipy.linalg import lstsq
+        import scipy.optimize as opt
         import scipy as sp
         assert X.shape[1] == x.shape[1]
-        """ If loop is implemented:
+        """
+        def dis_method(x_n, dis, dif = 0):
+            assert x_n.shape[0] == 2
+            from numpy import vstack
+            k1, k2, k3, p1, p2 = dis
+            r = x_n[0] ** 2 + x_n[1] ** 2
+            x_d_x = x_n[0, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + 2 * p1 * x_n[0, :] * x_n[1, :] + p2 * (r(x_n) + 2 * x_n[0, :] ** 2)
+            x_d_y = x_n[1, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + p1 * (r(x_n) + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
+            x_d = vstack((x_d_x, x_d_y)) - dif
+            return x_d
+        """
         # Maximum number of iterations:
-        ite_max = 1000
+        ite_max = 50
         # Maximum error:
         err_max = 0.5
-        """
+        x_1 = np.vstack((x,np.ones((1,x.shape[1]))))
         # Length of given data
         len = X.shape[1]
         # Add ones as 4th dimension to physical coordinates
@@ -574,26 +606,48 @@ class Pinhole(Camera):
         # Find resulting distorted normalized coordinates
         X_C = np.dot(R, X_p)
         x_n = np.zeros((2, len))
-        x_n[0] = X_C[0]/X_C[2]
+        x_n[0] = X_C[0] / X_C[2]
         x_n[1] = X_C[1] / X_C[2]
         # Find distortion constants that fit the best
-        k1, k2, k3, p1, p2 = self.Distortion(x_d, x_n)
+        #k1, k2, k3, p1, p2 = self.Distortion(x_d, x_n)
+        dis = self.Distortion(x_d, x_n)
         # Correct for distortion with the new constants
-        r = x_n[0, :] ** 2 + x_n[1, :] ** 2
-        x_d[0, :] = x_n[0, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + 2 * \
-                    p1 * x_n[0, :] * x_n[1, :] + p2 * (r + 2 * x_n[0, :] ** 2)
-        x_d[1, :] = x_n[1, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
-                     (r + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
+        #r = lambda x_n: x_n[0, :] ** 2 + x_n[1, :] ** 2
+        #x_d0 = lambda x_n: x_n[0, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + 2 * p1 * x_n[0, :] * x_n[1, :] + p2 * (r(x_n) + 2 * x_n[0, :] ** 2)
+        #x_d1 =  lambda x_n: x_n[1, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + p1 * (r(x_n) + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
+        #x_d_both = lambda x_n, rhs = np.array([[0],[0]]): np.vstack((x_d0(x_n) - rhs[0], x_d1(x_n) - rhs[1]))
+        #x_d_both = lambda x_n: np.vstack((x_d0(x_n), x_d1(x_n)))
+        x_d = self.dis_method(x_n, dis)
         # Find new camera matrix, by using the real camera coordinates and the normalized
         # coordinates, that are corrected for distortion
         C = self.Cam_Matrix(x, x_d)
         x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
         # Compute average error:
         err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
-        """
         ite = 0
-        while err >= err_max or ite < ite_max:
+        while err >= err_max and ite < ite_max:
             # Recompute through the system to find the error:
+            x_d = (inv(np.vstack((C,np.array([0,0,1])))).dot(x_1))[0 : 2, :]
+            # Compute distortion backwards
+            for i in range(len):
+                #    print(x_d[:,i].reshape(2,1))
+                #    print('a',opt.fsolve(x_d_both, x_d[:, i].reshape(2,1)))
+                x_n[:,i] = opt.fsolve(self.dis_method, x_d[:,i],args = ( dis, x_d[:,i]))
+            # New matrix for rotation/transtlation
+            R = self.Rotation_T(x_d, X)
+            # Compute new distorted coordinates
+            X_C = np.dot(R, X_p)
+            x_n[0] = X_C[0] / X_C[2]
+            x_n[1] = X_C[1] / X_C[2]
+            # New distortion coefficients:
+            dis = self.Distortion(x_d, x_n)
+            x_d = self.dis_method(x_n, dis)
+            C = self.Cam_Matrix(x, x_d)
+            x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
+            err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
+            ite += 1
+            print(ite)
+            """
             X_C = np.dot(R,X_p)
             x_n = np.zeros((len, 2))
             x_n[0] = X_C[0]/X_C[2]
@@ -604,9 +658,9 @@ class Pinhole(Camera):
             x_d[1, :] = x_n[1, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
                      (r + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
             x_p = np.dot(C, x_d)
-            err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
-        """ 
+            """
         print(err)
+        k1, k2, k3, p1, p2 = dis
         self.R = R.astype(numpy.float64)
         self.C = C.astype(numpy.float64)
         self.k1 = k1.astype(numpy.float64)
