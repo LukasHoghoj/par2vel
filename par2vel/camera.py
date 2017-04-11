@@ -546,6 +546,7 @@ class Pinhole(Camera):
         self.model = 'Pinhole'
 
     def dis_method(self, x_n, dis, dif = 0):
+        """Help function for the pinhole calibration"""
         assert x_n.shape[0] == 2
         from numpy import vstack, zeros, ndim
         a = 0
@@ -575,17 +576,6 @@ class Pinhole(Camera):
         import scipy.optimize as opt
         import scipy as sp
         assert X.shape[1] == x.shape[1]
-        """
-        def dis_method(x_n, dis, dif = 0):
-            assert x_n.shape[0] == 2
-            from numpy import vstack
-            k1, k2, k3, p1, p2 = dis
-            r = x_n[0] ** 2 + x_n[1] ** 2
-            x_d_x = x_n[0, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + 2 * p1 * x_n[0, :] * x_n[1, :] + p2 * (r(x_n) + 2 * x_n[0, :] ** 2)
-            x_d_y = x_n[1, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + p1 * (r(x_n) + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
-            x_d = vstack((x_d_x, x_d_y)) - dif
-            return x_d
-        """
         # Maximum number of iterations:
         ite_max = 50
         # Maximum error:
@@ -647,18 +637,6 @@ class Pinhole(Camera):
             err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
             ite += 1
             print(ite)
-            """
-            X_C = np.dot(R,X_p)
-            x_n = np.zeros((len, 2))
-            x_n[0] = X_C[0]/X_C[2]
-            x_n[1] = X_C[1] / X_C[2]
-            r = x_n[0, :] ** 2 + x_n[1, :] ** 2
-            x_d[0, :] = x_n[0, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + 2 * \
-                    p1 * x_n[0, :] * x_n[1, :] + p2 * (r + 2 * x_n[0, :] ** 2)
-            x_d[1, :] = x_n[1, :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3) + p1 *\
-                     (r + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
-            x_p = np.dot(C, x_d)
-            """
         print(err)
         k1, k2, k3, p1, p2 = dis
         self.R = R.astype(numpy.float64)
