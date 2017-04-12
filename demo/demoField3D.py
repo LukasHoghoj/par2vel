@@ -13,16 +13,34 @@ t_start = time.time()
 #### start ####
 import numpy as np
 import matplotlib.pyplot as plt
-from par2vel.camera import Scheimpflug
+from par2vel.camera import Scheimpflug, Pinhole, Third_order
 from par2vel.field import Field3D
 from par2vel.artimage import ArtImage, constUfunc, OseenUfunc, X_square, X_U
 from par2vel.piv2d import fftdx
 #from par2vel.piv3d import piv_camplane, stereo
 
-cam = Scheimpflug((512,512))
-cam.set_calibration(np.pi/3,1/1000) #M between 0 & 1
-cam2 = Scheimpflug((512,512))
-cam2.set_calibration(-np.pi/3,1/1000)
+# Creating Scheimpflug cameras as reference for third order or pinhole cameras
+cam_scheim = Scheimpflug((512,512))
+cam_scheim.set_calibration(np.pi/3,1/1000) #M between 0 & 1
+cam2_scheim = Scheimpflug((512,512))
+cam2_scheim.set_calibration(-np.pi/3,1/1000)
+
+X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+X = X.reshape((3,-1))
+x_1 = cam_scheim.X2x(X)
+x_2 = cam2_scheim.X2x(X)
+"""
+cam = Pinhole((512, 512))
+cam.calibration(x_1, X)
+cam2 = Pinhole((512, 512))
+cam2.calibration(x_2, X)
+"""
+cam = Third_order((512, 512))
+cam.calibration(x_1, X)
+cam2 = Third_order((512, 512))
+cam2.calibration(x_2, X)
+
+
 ai = ArtImage(cam)
 ai2 = ArtImage(cam2)
 ai.random_particles(0.02)
