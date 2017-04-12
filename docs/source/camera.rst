@@ -110,6 +110,17 @@ The first part is done with a translation vector :math:`t_i` and a
 rotation matrix :math:`r_{ij}`. 
 
 ------------------------------
+Third order camera model
+------------------------------
+
+This, third order, camera model may be suitable for applications, where a
+lot of nonlinear effects occur between the object and the camera lense. It
+is build on a linear operation between a :math:`2\times20` matrix, that 
+contains all transformation constansts, and a 20 dimensional vector, that
+contains all third order combinations between the 3 coordinates in object
+space, including a constant for translation. 
+
+------------------------------
 Scheimpflug model
 ------------------------------
 
