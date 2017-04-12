@@ -521,26 +521,6 @@ class Pinhole(Camera):
         Camera.__init__(self,newshape)
         # Define camera model
         self.model = 'Pinhole'
-
-    def dis_method(self, x_n, dis, dif = 0):
-        """Help function for the pinhole calibration"""
-        assert x_n.shape[0] == 2
-        from numpy import vstack, zeros, ndim
-        a = 0
-        if x_n.shape[0] == 2 and ndim(x_n) == 1:
-            x_n = x_n.reshape(2,1)
-            a = 1
-        len = x_n.shape[1]
-        k1, k2, k3, p1, p2 = dis
-        x_d = zeros((2, len))
-        r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
-        x_d[0 , :] = x_n[0 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
-                     + 2 * p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
-        x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
-                     + p1 * (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
-        if a == 1:
-            x_d = x_d.reshape(2)
-        return x_d - dif
     
     def Calibrate_Pinhole(self,X, x, C):
         """Function to calibrate camera with respect to the pinhole model. The
@@ -579,11 +559,6 @@ class Pinhole(Camera):
         #k1, k2, k3, p1, p2 = self.Distortion(x_d, x_n)
         dis = self.Distortion(x_d, x_n)
         # Correct for distortion with the new constants
-        #r = lambda x_n: x_n[0, :] ** 2 + x_n[1, :] ** 2
-        #x_d0 = lambda x_n: x_n[0, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + 2 * p1 * x_n[0, :] * x_n[1, :] + p2 * (r(x_n) + 2 * x_n[0, :] ** 2)
-        #x_d1 =  lambda x_n: x_n[1, :] * (1 + k1 * r(x_n) + k2 * r(x_n) ** 2 + k3 * r(x_n) ** 3) + p1 * (r(x_n) + 2 * x_n[1, :] ** 2) + 2 * p2 * x_n[0, :] * x_n[1, :]
-        #x_d_both = lambda x_n, rhs = np.array([[0],[0]]): np.vstack((x_d0(x_n) - rhs[0], x_d1(x_n) - rhs[1]))
-        #x_d_both = lambda x_n: np.vstack((x_d0(x_n), x_d1(x_n)))
         x_d = self.dis_method(x_n, dis)
         # Find new camera matrix, by using the real camera coordinates and the normalized
         # coordinates, that are corrected for distortion
@@ -597,8 +572,6 @@ class Pinhole(Camera):
             x_d = (inv(np.vstack((C,np.array([0,0,1])))).dot(x_1))[0 : 2, :]
             # Compute distortion backwards
             for i in range(len):
-                #    print(x_d[:,i].reshape(2,1))
-                #    print('a',opt.fsolve(x_d_both, x_d[:, i].reshape(2,1)))
                 x_n[:,i] = opt.fsolve(self.dis_method, x_d[:,i],args = ( dis, x_d[:,i]))
             # New matrix for rotation/transtlation
             R = self.Rotation_T(x_d, X)
@@ -624,6 +597,26 @@ class Pinhole(Camera):
         self.p1 = p1.astype(numpy.float64)
         self.p2 = p2.astype(numpy.float64)
 
+    def dis_method(self, x_n, dis, dif = 0):
+        """Help function for the pinhole calibration"""
+        assert x_n.shape[0] == 2
+        from numpy import vstack, zeros, ndim
+        a = 0
+        if x_n.shape[0] == 2 and ndim(x_n) == 1:
+            x_n = x_n.reshape(2,1)
+            a = 1
+        len = x_n.shape[1]
+        k1, k2, k3, p1, p2 = dis
+        x_d = zeros((2, len))
+        r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
+        x_d[0 , :] = x_n[0 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
+                     + 2 * p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
+        x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
+                     + p1 * (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
+        if a == 1:
+            x_d = x_d.reshape(2)
+        return x_d - dif
+        
     def Distortion(self,x_d, x_n):
         """Function returns the distortion cooeficients for given distorted and 
         normalized coordinates"""
@@ -718,6 +711,10 @@ class Pinhole(Camera):
         return Cam_M
 
     def set_calibration(self, R, dis, C):
+        """Set calibration for Pinhole camera model, to be caled as
+        camera.set_calibration(R, dis, C), where R is the rotation and
+        translation matrix, dis the 5D array with the lens distortion
+        coefficients and C the camera matrix"""
         self.R = R
         self.k1 = dis[0]
         self.k2 = dis[1]
@@ -843,7 +840,7 @@ class Third_order(Camera):
         self.model = 'Third_order'
     
     def set_calibration(self, calib):
-        """Set calibration from given 2x13 array, that is given as input to
+        """Set calibration from given 2z20 array, that is given as input to
         this function"""
         assert calib.shape == (2,20)
         self.calib = calib
