@@ -284,6 +284,23 @@ class testThirdOrder(unittest.TestCase):
         diff = np.sqrt((x_sch[0] - x_com[0]) ** 2 + (x_sch[1] - x_com[1]) ** 2)
         numpy.testing.assert_array_almost_equal(diff,zero,decimal = 10)
 
+    def testX2x(self):
+        from numpy import arange, eye, array
+        calib = arange(40).reshape(2,20)
+        cam = Third_order((512,512))
+        cam.set_calibration(calib)
+        X = eye(3)
+        x_expect = array([[40, 43, 46],[120, 123, 126]])
+        x = cam.X2x(X)
+        diff = ((x[0] - x_expect[0]) ** 2 + (x[1] - x_expect[1]) ** 2) ** (0.5)
+        zero = array([0, 0, 0])
+        numpy.testing.assert_array_almost_equal(diff,zero)
+        X = array([[1],[1],[1]])
+        x_expect = array([[190], [590]])
+        x = cam.X2x(X)
+        diff = ((x[0] - x_expect[0]) ** 2 + (x[1] - x_expect[1]) ** 2) ** (0.5)
+        self.assertAlmostEqual(diff, 0)
+
     def test_save_read(self):
         import numpy as np
         camw  = Third_order((512,512))
@@ -303,7 +320,6 @@ class testThirdOrder(unittest.TestCase):
         X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
         X = X.reshape((3,-1))
         x = cams.X2x(X)
-        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
         cam = Third_order((512,512))
         cam.calibration(x, X)
         X = np.array([[1, -1, 0.5, 0], [0, 1, -2, 1], [0, 0, 0, 0]])
