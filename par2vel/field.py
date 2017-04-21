@@ -289,17 +289,20 @@ class Field3D(object):
         The partial derivatives are return in a 4 dimentional array:
         Field3D.partial[field2d#,object dimension (dX,dY,dZ),camera dimenstion(
         dx,dy),ni,nj]"""
-        from numpy import zeros, arange
-        dis = numpy.array([[1,0,0],[0,1,0],[0,0,1]])*1e-3
-        na = numpy.newaxis
+        from numpy import zeros, arange, log10, array
+        from numpy.linalg import norm
         # Array with indices, that will be used to decompose the array containing
         # the Jacobi matrices
         ind = arange(self.size * 3)
         # Creating zero array, that will contain the partial derivatives:
         self.partial = zeros((len(self.field2d),3,2,self.shape[0],self.shape[1]))
         for i in range(len(self.field2d)):
+            # Find the numerical tolerance for the definition of the jacobian
+            tol = self.field2d[i].camera.dx2dX(self.field2d[i].x[:, round(self.shape[0]/2),\
+                     round(self.shape[1] / 2)].reshape(2,1), array([[1],[1]]))
+            tol = -round(log10(norm(tol)/1e+4))
             # Finding the jacobi matrix for each point
-            part = self.field2d[i].camera.part(self.getX_flat())
+            part = self.field2d[i].camera.part(self.getX_flat(), tol)
             # Redistribution of the partial derivatives, first by dX, dY and dZ
             # and then reshaping them back into the grid
             self.partial[i,0,:,:,:] = part[:, ind % 3 == 0].reshape(2,self.shape[0],self.shape[1])
@@ -333,8 +336,7 @@ class Field3D(object):
             try:
                 self.field2d[i].dx
             except NameError:
-                disp('Using FFTDX function to find camera displacements')
-                fftdx(self.field2d[i].Im[0],self.field2d[i].Im[1],self.field2d[i])
+                raise NameError('Camera displacements have to be defined under the variable dx in the field2d subobjects')
         # Call function containing partial derivatives for movement at each point
         # in the fields
         self.dxdX()
@@ -355,4 +357,3 @@ class Field3D(object):
                 self.dX[: , i , j] = lstsq(part , dx)[0]
         print("Time to solve the equation %s seconds" % (time.time()-t))
     
-
