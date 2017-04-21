@@ -537,7 +537,8 @@ class Pinhole(Camera):
         """Function to calibrate camera with respect to the pinhole model. The
         function takes the input Calibrate_Pinhole([X,Y,Z],[x,y]); where X,Y and Z
         are the coordinates in object space and x and y are their respectevely
-        corresponding coordinates in the image plane"""
+        corresponding coordinates in the image plane. The argument C is a guess
+        for the camera matrix"""
         import numpy as np
         from numpy.linalg import inv
         from scipy.linalg import lstsq
