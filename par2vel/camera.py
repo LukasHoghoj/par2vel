@@ -165,6 +165,17 @@ class Camera(object):
                 self.X2x(repeat(X, 3).reshape(3, 3 * len))) *  10 ** n
         return dxdX
 
+    def x2X(self, x):
+        """Transform image plane coordinates to object plane, assuming Z = 0"""
+        import numpy as np
+        import scipy.optimize as opt
+        # Create empty solution vector (3rd dimension will always stay 0 as assumed)
+        X = np.zeros((3,x.shape[1]))
+        XY_guess = np.zeros(2)
+        for i in range(x.shape[1]):
+            X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess,x[:,i])
+        return X
+
 class One2One(Camera):
     """Camera model that assumes object coordinates = image coordinates"""
     # same functions as Camera, but adds inverse functions x2X and dx2dX
@@ -937,21 +948,12 @@ class Third_order(Camera):
             x = x.reshape(2)
         return x - dif
 
-    def x2X(self, x):
-        """Transform image plane coordinates to object plane, assuming Z = 0"""
-        import numpy as np
-        import scipy.optimize as opt
-        # Create empty solution vector (3rd dimension will always stay 0 as assumed)
-        X = np.zeros((3,x.shape[1]))
-        XY_guess = np.zeros(2)
-        for i in range(x.shape[1]):
-            X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess,x[:,i])
-        return X
+
 
 def readimage(filename):
     """ Read grayscale image from file """
     im=Image.open(filename)
-    s=im.tostring()
+    s=im.tobytes()
     if im.mode=='L':        # 8 bit image
         gray=numpy.fromstring(s,numpy.uint8)/255.0
     elif im.mode=='I;16':   # 16 bit image (assume 12 bit grayscale)
