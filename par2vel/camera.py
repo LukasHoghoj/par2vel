@@ -972,3 +972,26 @@ def saveimage(image,filename):
     im8bit=(255*imwork).astype(numpy.uint8)
     im=Image.fromstring('L',(image.shape[1],image.shape[0]),im8bit.tostring())
     im.save(filename)
+
+def read_cali_file(filename):
+    """This function can read the files created with the Calibration_image
+    object (in read_calibration.py). It returns a 5 x n array, that contains
+    the object and image coordinates [X, Y, Z, x, y]"""
+    from numpy import array, hstack
+    lines = open(filename).readlines()
+    X = array([[0], [0], [0], [0], [0]])
+    n = 0
+    nlines = len(lines)
+    while n < nlines:
+        line = lines[n]
+        # Check for beginning of a new Z
+        if line.lower().find('z = ') == 0:
+            Z = float(line.split()[2])
+            X = hstack((X,array([[float(x) for x in lines[n+1].split()],
+                       [float(x) for x in lines[n+2].split()],
+                       [Z for x in lines[n+1].split()],
+                       [float(x) for x in lines[n+3].split()],
+                       [float(x) for x in lines[n+4].split()]])))
+            n += 4 
+        n += 1
+    return X[:, 1::]
