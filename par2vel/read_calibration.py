@@ -17,7 +17,7 @@ class Calibration_image(object):
         self.shape = self.img.shape
         self.img_name = img_name
     
-    def find_ellipses(self, edge_dist = [20, 20, 20, 20]):
+    def find_ellipses(self, edge_dist = [15, 15, 15, 15]):
         """The find_ellipses function detects elipse shapes, that correspond to dots,
         in the image. The center coordinates of all elipses, which lie in the 
         acceptebale windows are returned in the array self.x. 
@@ -65,20 +65,40 @@ class Calibration_image(object):
         >>> self.coordinate_system()
         """
 
-        from matplotlib.pyplot import figure, imshow, title, plot, show, pause
+        from matplotlib.pyplot import figure, imshow, title, plot, show, pause, subplot2grid, text, axis
+        from numpy import array
 
         self.selected_x = []
         self.selected_y = []
+        self.quit_figure = None
         self.fig = figure(1)
+        self.ax_im = subplot2grid((10, 3), (0,0), colspan = 3, rowspan = 9)
         imshow(self.img,'gray')
-        title("Please click on the following points in the same order as mentioned: (0,0), (1,0), (0,1",\
-                    fontsize = 8)
+        title(("Please click on the following points in the same order as mentioned: (0,0), (1,0), (0,1)\n " +\
+               "Then click on points that have to be exclude from the axes, such that all defined points\n" +\
+               "on the axes belong to complete lines of dots"), fontsize = 8)
         plot(self.x[0, :],self.x[1, :],'rx')
+        axis('off')
+        self.ax_done = subplot2grid((10, 3), (9,0))
+        text(0.5, 0.5,'Done',horizontalalignment='center',verticalalignment='center')
+        axis([0, 1, 0, 1])
+        axis('off')
+        self.ax_close = subplot2grid((10, 3), (9, 1))
+        text(0.5, 0.5,'Done and close figure',horizontalalignment='center',verticalalignment='center')
+        axis([0, 1, 0, 1])
+        axis('off')
+        self.ax_del = subplot2grid((10, 3), (9, 2))
+        text(0.5, 0.5,'Cancel last selected point',horizontalalignment='center',verticalalignment='center')
+        axis([0, 1, 0, 1])
+        axis('off')
         show()
         pause(0.01)
         self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
         # Wait for the user to select 3 points:
         self.waitcanvas()
+        # Delete ellipses the user does not wants to keep:
+        x_del = array([self.selected_x[3:], self.selected_y[3:]])
+        self.delete_ellipses(x_del)
 
     def onclick(self, event):
         """This function appends the x and y values of the click in the figure
@@ -86,10 +106,17 @@ class Calibration_image(object):
         Note that this function already is called in both the
         self.coordinate_system and the self.waitcanvas functions.
         """
-
-        if event.xdata != None and event.ydata != None:
+        
+        if event.inaxes == self.ax_im:
             self.selected_x.append(event.xdata)
             self.selected_y.append(event.ydata)
+        elif event.inaxes == self.ax_done:
+            self.quit_figure = 'done'
+        elif event.inaxes == self.ax_close:
+            self.quit_figure = 'close'
+        elif event.inaxes == self.ax_del:
+            self.selected_x.pop()
+            self.selected_y.pop()
         
     def waitcanvas(self):
         """The main purpose of this function is to make the program wait 
@@ -98,11 +125,18 @@ class Calibration_image(object):
         Note that this function is automatically called in self.coordinate_system()
         """
 
-        from matplotlib.pyplot import pause
+        from matplotlib.pyplot import pause, close
 
-        while len(self.selected_x) < 3:
+        while True:
             pause(0.01)
             self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
+            if self.quit_figure == 'done' and len(self.selected_x) >= 3:
+                break
+            if self.quit_figure == 'close' and len(self.selected_x) >= 3:
+                close(self.fig)
+                break
+            self.quit_figure = None
+
         self.fig.canvas.mpl_disconnect(self.cid)
     
     def closest_point(self, x_):
@@ -115,6 +149,20 @@ class Calibration_image(object):
         diff = ((self.x[0] - x_[0]) ** 2 + (self.x[1] - x_[1]) ** 2) ** 0.5
         p = self.x[0 : 2, diff == min(diff)]
         return p
+
+    def delete_ellipses(self, x_del):
+        """This function takes ellipse center points as input and deletes
+        them from the array containing the ellipse centerpoints, such that
+        those centerpoints will not be included in further processing"""
+        
+        from numpy import delete, where
+        ind = []
+        # Find indices of points, which have to be deleted
+        for i in range(len(x_del[0])):
+            x_del_local = self.closest_point(x_del[:, i])
+            ind.append(int(where((x_del_local[0, 0] == self.x[0]) * (x_del_local[1, 0] == self.x[1]))[0][0]))
+        # Delete points:
+        self.x = delete(self.x, ind, 1)
 
     def center_axis(self):
         """This function interpretes the user click input on the figure and
