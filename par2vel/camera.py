@@ -977,7 +977,7 @@ def read_cali_file(filename):
     """This function can read the files created with the Calibration_image
     object (in read_calibration.py). It returns a 5 x n array, that contains
     the object and image coordinates [X, Y, Z, x, y]"""
-    from numpy import array, hstack
+    from numpy import array, hstack, insert
     lines = open(filename).readlines()
     X = array([[0], [0], [0], [0], [0]])
     n = 0
@@ -987,11 +987,8 @@ def read_cali_file(filename):
         # Check for beginning of a new Z
         if line.lower().find('z = ') == 0:
             Z = float(line.split()[2])
-            X = hstack((X,array([[float(x) for x in lines[n+1].split()],
-                       [float(x) for x in lines[n+2].split()],
-                       [Z for x in lines[n+1].split()],
-                       [float(x) for x in lines[n+3].split()],
-                       [float(x) for x in lines[n+4].split()]])))
-            n += 4 
+        if len(line.split()) == 4 and line.isalpha() == False:
+            line = array([float(x) for x in line.split()])
+            X = hstack((X, insert(line, 2, Z).reshape(5,1)))
         n += 1
     return X[:, 1::]

@@ -33,8 +33,10 @@ class Calibration_image(object):
         from numpy import zeros
 
         # If edge list is only a scalar, use the distance on all sides
-        if len(edge_dist) == 1:
+        if type(edge_dist) == int:
             edge_dist = [edge_dist] * 4
+        elif len(edge_dist) == 1:
+            edge_dist = edge_dist * 4
         # Empty lists
         elpsa = []
         x = []
@@ -121,6 +123,7 @@ class Calibration_image(object):
         if event.inaxes == self.ax_im:
             self.selected_x.append(event.xdata)
             self.selected_y.append(event.ydata)
+            self.ax_im.plot(event.xdata, event.ydata, 'bo')
         elif event.inaxes == self.ax_done:
             self.quit_figure = 'done'
         elif event.inaxes == self.ax_close:
@@ -345,7 +348,7 @@ class Calibration_image(object):
         if description != None:
             print(description, file = f)
         f.write("Z = {:}\n".format(repr(Z)))
-        for row in self.X:
+        for row in self.X.T:
             for value in row:
                 print(repr(value), end = ' ', file = f)
             print(file = f)
@@ -354,7 +357,7 @@ class Calibration_image(object):
         """Append data to an already existing file"""
         f = open(filename, 'a')
         f.write("Z = {:}\n".format(repr(Z)))
-        for row in self.X:
+        for row in self.X.T:
             for value in row:
                 print(repr(value), end = ' ', file = f)
             print(file = f)
