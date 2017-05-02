@@ -196,7 +196,7 @@ class Calibration_image(object):
         self.center = self.closest_point(array([self.selected_x[0],\
                                                 self.selected_y[0]]))
         x_axis = self.closest_point(array([self.selected_x[1],\
-                                           self.selected_y[0]]))
+                                           self.selected_y[1]]))
         y_axis = self.closest_point(array([self.selected_x[2],\
                                            self.selected_y[2]]))
 
@@ -227,24 +227,25 @@ class Calibration_image(object):
 
         # Defining the lines that respectively go through the x and y axis:
         rhs_x = vstack((self.axes[2, 0:2], ones(2))).T
-        rhs_y = vstack((self.axes[2, [0, 2]], ones(2))).T
+        rhs_y = vstack((self.axes[3, [0, 2]], ones(2))).T
         lhs_x = self.axes[3, 0:2]
-        lhs_y = self.axes[3, [0, 2]]
+        lhs_y = self.axes[2, [0, 2]]
         a_x, b_x = lstsq(rhs_x, lhs_x)[0]
         a_y, b_y = lstsq(rhs_y, lhs_y)[0]
         # y positions of the ellipse centerpoints according to their x
         # coordinates and the linear regressiion:
         test_on_x = a_x * self.x[0] + b_x
-        test_on_y = a_y * self.x[0] + b_y
+        test_on_y = a_y * self.x[1] + b_y
         # Extract points that are close enough to axis:
         x_axis = self.x[0:2, isclose(test_on_x, self.x[1],\
                                      atol = pixeltol, rtol = 0)]
-        y_axis = self.x[0:2, isclose(test_on_y, self.x[1],\
+        y_axis = self.x[0:2, isclose(test_on_y, self.x[0],\
                                      atol = pixeltol, rtol = 0)]
+        # Sort values in x and y axis, depending on their orientations:
         if self.axes[2, 0] < self.axes[2,1]:
             x_axis = x_axis[:, x_axis[0].argsort()]
         else:
-            x_axis = x_axis[:, -x_axis[0].argsort()]
+            x_axis = x_axis[:, (-x_axis[0]).argsort()]
         if self.axes[3, 0] < self.axes[3,2]:
             y_axis = y_axis[:, (-y_axis[1]).argsort()]
         else:
