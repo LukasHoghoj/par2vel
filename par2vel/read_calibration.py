@@ -12,9 +12,10 @@ class Calibration_image(object):
         """
 
         from cv2 import imread, IMREAD_ANYDEPTH, IMREAD_GRAYSCALE
-        from numpy import max, uint8
-        self.img = imread(img_name,2)
-        self.img = uint8(self.img * (255 / max(self.img)))
+        from numpy import uint8
+        from par2vel.camera import readimage
+        self.img = readimage(img_name)
+        self.img = uint8(self.img * 255)
         self.shape = self.img.shape
         self.img_name = img_name
 
