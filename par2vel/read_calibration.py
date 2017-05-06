@@ -11,11 +11,13 @@ class Calibration_image(object):
         >>> self = Calibration_image(filename)
         """
 
-        from cv2 import imread
-
-        self.img = imread(img_name,0)
+        from cv2 import imread, IMREAD_ANYDEPTH, IMREAD_GRAYSCALE
+        from numpy import max, uint8
+        self.img = imread(img_name,2)
+        self.img = uint8(self.img * (255 / max(self.img)))
         self.shape = self.img.shape
         self.img_name = img_name
+
     
     def find_ellipses(self, edge_dist = [15, 15, 15, 15]):
         """The find_ellipses function detects elipse shapes, that correspond to
@@ -31,7 +33,7 @@ class Calibration_image(object):
         from cv2 import Canny, findContours, fitEllipse, RETR_EXTERNAL, \
                         CHAIN_APPROX_NONE
         from numpy import zeros
-
+        import matplotlib.pyplot as plt
         # If edge list is only a scalar, use the distance on all sides
         if type(edge_dist) == int:
             edge_dist = [edge_dist] * 4
