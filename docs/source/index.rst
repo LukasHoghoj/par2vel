@@ -23,6 +23,7 @@ Contents:
 
    overview
    camera
+   camfield
    field
    stereo   
 
