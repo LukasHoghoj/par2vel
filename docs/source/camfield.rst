@@ -36,6 +36,10 @@ the optional argument to ``edge_dist`` is either an integer or a
 4 dimentional list and is determinating how close to the edge
 of the picture the centerpoints may be in order to be taken into
 account. The default argument is ``edge_dist = [15, 15, 15, 15]``.
+The argument is in pixels and that it has to be given in the 
+following order: ``[d_top, d_bottom, d_left, d_right]``. Note 
+that top here means that ``y = 0`` and bottom means that
+``y = max(y)``.
 
 In order to find the ellipses, first the ``cv2.Canny`` function
 is called on the image (this gives a matrix containing the contours
@@ -124,3 +128,57 @@ In the written files, each new :math:`Z` postion will begin with
 ``Z = val`` followed by one set of coordinates in each row. The
 coordinates are written in the following order: 
 :math:`X\;\; Y\;\; x\;\; y` .
+
+--------------------------
+Example
+--------------------------
+
+Here is a short example on how to read a calibration image. All
+variables, such as ``path_to_image`` or ``X_int`` are assumed to 
+have been defined beforehand.
+
+::
+
+	# Import package
+	from par2vel.read_calibration import Calibration_image
+	# Import image
+	img = Calibration_image(path_to_image)
+	# Find ellipse centerpoints
+	img.find_ellipses(edge_dist = distances)
+	# Let the user define the coordinate system and unselect points through the GUI
+	img.coordinate_system()
+	# Find the ellipse centerpoints corresponding to the ones, the user clicked on
+	img.center_axis()
+	# Find the object space coordinates corresponding to the image coordinates
+	img.object_coordinates(X_spacing = [X_int, Y_int])
+	# Save to a new file
+	img.save2file(Z_val, filename_save, description = some_str)
+	# OR append to file if a file with the filename already exists
+	img.append2file(Z_val, filename)
+	
+The saved file can be read as
+
+::
+
+	# Import file reading function:
+	from par2vel.camera import read_cali_file
+	# Read file
+	a = read_cali_file(filename)
+
+This will return:
+
+::
+
+	>>> a
+	array([[ -9.00000000e-02,  -8.00000000e-02,  -7.00000000e-02, ..., 8.00000000e-02,   9.00000000e-02,   1.00000000e-01],
+           [  5.00000000e-02,   5.00000000e-02,   5.00000000e-02, ..., -4.00000000e-02,  -4.00000000e-02,  -4.00000000e-02],
+           [ -2.00000000e-03,  -2.00000000e-03,  -2.00000000e-03, ..., 2.00000000e-03,   2.00000000e-03,   2.00000000e-03],
+           [  8.36235657e+01,   1.55307129e+02,   2.25897369e+02, ..., 1.18632117e+03,   1.24272131e+03,   1.29857007e+03],
+           [  7.24988480e+01,   7.64637375e+01,   8.03845291e+01, ..., 9.03613953e+02,   9.01720154e+02,   8.99737122e+02]])
+	
+Where:
+
+.. math::
+	a = \left[ \begin{array}{c}
+	X\\Y\\Z\\x\\y
+	\end{array}	\right]
