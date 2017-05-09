@@ -92,6 +92,16 @@ class testLinear2d(unittest.TestCase):
         self.assertAlmostEqual((cam2.calib - calib).sum(), 0)
         os.remove(filename)
 
+    def test_calib(self):
+        cam1 = Linear2d()
+        calib = numpy.array([[0.1, 0, 100], [0, 0.11, 101]])
+        cam1.set_calibration(calib)
+        X = numpy.mgrid[-2:2:0.1,-2:2:0.1].reshape(2, -1)
+        x = cam1.X2x(X)
+        cam2 = Linear2d()
+        cam2.calibration(x, X)
+        self.assertAlmostEqual((cam1.calib - cam2.calib).sum(), 0)
+
 class testLinear3d(unittest.TestCase):
 
     def test_X2x(self):
@@ -122,6 +132,28 @@ class testLinear3d(unittest.TestCase):
         self.assertAlmostEqual((cam2.calib - calib).sum(), 0)
         os.remove(filename)
 
+    def test_calib(self):
+        from numpy import array, mgrid
+        cam1 = Linear3d()
+        calib =  array([[1.0, 0, 0, 0],
+                        [0.0, 1, 0, 0],
+                        [0.0, 0, 0, 1]])
+        cam1.set_calibration(calib)
+        X = mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001].reshape((3, -1))
+        x = cam1.X2x(X)
+        cam2 = Linear3d()
+        cam2.calibration(x, X)
+        self.assertAlmostEqual((cam1.calib - cam2.calib).sum(), 0)
+        cam1 = Linear3d()
+        calib =  array([[1.0, 2.0, 3.0, 4.0],
+                        [1.0, 2.0, 3.0, 4.0],
+                        [20.0, 0.2, 0.1, 1]])
+        cam1.set_calibration(calib)
+        X = mgrid[-1:1:0.1,-1:1:0.1,-0.001:0.001:0.001].reshape((3, -1))
+        x = cam1.X2x(X)
+        cam2 = Linear3d()
+        cam2.calibration(x, X)
+        self.assertAlmostEqual((cam1.calib - cam2.calib).sum(), 0)
 
 class testScheimpflug(unittest.TestCase):
 

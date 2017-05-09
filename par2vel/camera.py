@@ -269,6 +269,28 @@ class Linear2d(Camera):
             print(file=f)
         f.close()
 
+    def calibration(self, x, X, filename = False):
+        """Calibrate Linear2D camera. Two input arrays first pixel
+        coordinates, then 2D object plane coordinates. A filename,
+        can be given as optional input to save the calibration"""
+        from numpy import zeros, ones, arange, vstack
+        from numpy.linalg import lstsq
+        assert x.shape == X.shape
+        assert x.shape[0] == 2
+        len = x.shape[1]
+        lhs = zeros(2 * len)
+        indices = arange(2 * len)
+        lhs[indices % 2 == 0] = x[0]
+        lhs[indices % 2 == 1] = x[1]
+        element_rhs = vstack((X, ones(len))).T
+        rhs = zeros((2 * len, 6))
+        rhs[indices % 2 == 0, 0:3] = element_rhs
+        rhs[indices % 2 == 1, 3:6] = element_rhs
+        res = lstsq(rhs, lhs)[0]
+        self.calib = res.reshape(2, 3)
+        if filename != False:
+            self.save_camera(filename)
+
     def X2x(self, X):
         """Use camera model to get camera coordinates x
            from physical cooardinates X.
@@ -369,6 +391,33 @@ class Linear3d(Camera):
                 print(repr(number), end=' ', file=f)
             print(file=f)
         f.close()
+
+    def calibration(self, x, X, filename = False):
+        """Calibrate Linear3D camera. Two input arrays first pixel
+        coordinates, then 3D object plane coordinates. A filename,
+        can be given as optional input to save the calibration"""
+        from numpy import zeros, ones, arange, vstack, append
+        from numpy.linalg import lstsq
+        assert x.shape[1] == X.shape[1]
+        len = x.shape[1]
+        lhs = zeros(2 * len)
+        rhs = zeros((2 * len, 11))
+        indices = arange(2 * len)
+        lhs[indices % 2 == 0] = x[0]
+        lhs[indices % 2 == 1] = x[1]
+        element_rhs = vstack((X, ones(len))).T
+        rhs[indices % 2 == 0, 0:4] = element_rhs
+        rhs[indices % 2 == 1, 4:8] = element_rhs
+        rhs[indices % 2 == 0, 8] = -X[0] * x[0]
+        rhs[indices % 2 == 1, 8] = -X[0] * x[1]
+        rhs[indices % 2 == 0, 9] = -X[1] * x[0]
+        rhs[indices % 2 == 1, 9] = -X[1] * x[1]
+        rhs[indices % 2 == 0, 10] = -X[2] * x[0]
+        rhs[indices % 2 == 1, 10] = -X[2] * x[1]
+        res = lstsq(rhs, lhs)[0]
+        self.calib = append(res, 1).reshape(3, 4)
+        if filename != False:
+            self.save_camera(filename)
 
     def X2x(self, X):
         """Use camera model to get camera coordinates x
@@ -546,7 +595,7 @@ class Pinhole(Camera):
         import scipy as sp
         assert X.shape[1] == x.shape[1]
         # Maximum number of iterations:
-        ite_max = 50
+        ite_max = 10
         # Maximum error:
         err_max = 0.5
         x_1 = np.vstack((x,np.ones((1,x.shape[1]))))
@@ -598,8 +647,6 @@ class Pinhole(Camera):
             x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
             err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
             ite += 1
-            print(ite)
-        print(err)
         k1, k2, k3, p1, p2 = dis
         self.R = R.astype(numpy.float64)
         self.C = C.astype(numpy.float64)
@@ -958,6 +1005,7 @@ def readimage(filename):
     if im.mode=='L':        # 8 bit image
         gray=numpy.fromstring(s,numpy.uint8)/255.0
     elif im.mode=='I;16':   # 16 bit image (assume 12 bit grayscale)
+        print('a')
         gray=numpy.fromstring(s,numpy.uint16)/4095.0
     else:
         raise ImageFormatNotSupported
