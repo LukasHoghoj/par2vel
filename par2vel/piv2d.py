@@ -135,7 +135,7 @@ def displacementFFT(win1,win2,biascorrect=None):
     # fractional position of peak
     try:
         ifrac,jfrac=gauss_interpolate2(R2[ipeak-1:ipeak+2,jpeak-1:jpeak+2])
-    except IndexError:  # peak at edge of correlation plane
+    except AssertionError:  # peak at edge of correlation plane
         ifrac,jfrac=0.0,0.0
     return winsize - 1 - ipeak - ifrac, winsize -1 - jpeak - jfrac    
 
@@ -185,23 +185,25 @@ def fftdx(Im1, Im2, field):
         j2=int(xc2[0]+winhalf+1)
         w2=Im2[i1:i2,j1:j2]
         irel, jrel = displacementFFT(w1,w2,biascorrect)
-##        # statistics on windows
-##        w1f=w1-mean(ravel(w1))
-##        w2f=w2-mean(ravel(w2))
-##        w1std=std(ravel(w1f))
-##        w2std=std(ravel(w2f))
-##        # calculate normalized cross correlation
-##        R=xcorr2(w1f,w2f)/(winsize*winsize*w1std*w2std)
-##        # do bias correction
-##        R2=R/BiasCorrect
-##        # find peak and fractional position of peak
-##        ipeak,jpeak=findpeakindex(R)
-##        try:
-##            ifrac,jfrac=gauss_interpolate2(R2[ipeak-1:ipeak+2,jpeak-1:jpeak+2])
-##        except:  # e.g peak at edge of IA
-##            ifrac,jfrac=0.0,0.0
-##        # find displacement (switch from (i,j) to (x,y))
-##        # note center of correlationplane R(winsize-1,winsize-1) is zero displacement
+        """
+        # statistics on windows
+        w1f=w1-mean(ravel(w1))
+        w2f=w2-mean(ravel(w2))
+        w1std=std(ravel(w1f))
+        w2std=std(ravel(w2f))
+        # calculate normalized cross correlation
+        R=xcorr2(w1f,w2f)/(winsize*winsize*w1std*w2std)
+        # do bias correction
+        R2=R/biascorrect
+        # find peak and fractional position of peak
+        ipeak,jpeak=findpeakindex(R)
+        try:
+            ifrac,jfrac=gauss_interpolate2(R2[ipeak-1:ipeak+2,jpeak-1:jpeak+2])
+        except:  # e.g peak at edge of IA
+            ifrac,jfrac=0.0,0.0
+        # find displacement (switch from (i,j) to (x,y))
+        # note center of correlationplane R(winsize-1,winsize-1) is zero displacement
+        """
         dx[0,n] = xc2[0] - xc1[0] + jrel 
         dx[1,n] = xc2[1] - xc1[1] + irel
     field.setdxflat(dx)
