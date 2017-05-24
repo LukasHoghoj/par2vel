@@ -228,7 +228,7 @@ class Field3D(object):
         for i in range(len(cam)):
             self.field2d.append(Field2D(cam[i]))
         
-    def corners(self):
+    def corners(self, reduce_domain = [0, 0, 0, 0]):
         """Find area that both cameras cover"""
         from numpy import append, array
         # Unwrapping
@@ -247,19 +247,22 @@ class Field3D(object):
         lim2[:,0:2] = lim2[:,lim2[1,0:2].argsort()]
         lim2[:,2:4] = lim2[:,lim2[1,2:4].argsort()+2]
         # The four corners of the common rectangle are now defined
+        reduce_domain = array(reduce_domain).reshape(2,2)
+        reduce_domain[:, 0] = -reduce_domain[:,0] 
         self.X_corners_rectangle = array([[max(append(lim1[0,0:2],lim2[0,0:2])),\
                                    min(append(lim1[0,2:4],lim2[0,2:4]))],\
                                   [max(append(lim1[1,[0,2]],lim2[1,[0,2]])),\
-                                   min(append(lim1[1,[1,3]],lim2[1,[1,3]]))]])
+                                   min(append(lim1[1,[1,3]],lim2[1,[1,3]]))]])\
+                                   - reduce_domain
         
-    def grid(self,shape):
+    def grid(self, shape, reduce_domain = [0, 0, 0, 0]):
         """Make a grid that has the resolution res[0] x res[1] and make 
            corresponding camera plane grids
            The function has to be called by the """
         self.shape = numpy.array(shape)
         self.size = self.shape[0] * self.shape[1]
         # Find corners in object plane
-        self.corners()
+        self.corners(reduce_domain = reduce_domain)
         # Empty matrix for object plane coordinates:
         self.X = numpy.zeros((3,self.shape[0],self.shape[1]))
         # Space between two points (in object plane)
@@ -308,7 +311,6 @@ class Field3D(object):
             self.partial[i,0,:,:,:] = part[:, ind % 3 == 0].reshape(2,self.shape[0],self.shape[1])
             self.partial[i,1,:,:,:] = part[:, ind % 3 == 1].reshape(2,self.shape[0],self.shape[1])
             self.partial[i,2,:,:,:] = part[:, ind % 3 == 2].reshape(2,self.shape[0],self.shape[1])
- 
             
     def cam_dis(self):
         """ This function sets up a 1D array, that contains the camera 
@@ -355,5 +357,5 @@ class Field3D(object):
                 dx[0 : 2] = self.field2d[0].dx[: , i , j]
                 dx[2 : 4] = self.field2d[1].dx[: , i , j]
                 self.dX[: , i , j] = lstsq(part , dx)[0]
-        print("Time to solve the equation %s seconds" % (time.time()-t))
+        # print("Time to solve the equation %s seconds" % (time.time()-t))
     
