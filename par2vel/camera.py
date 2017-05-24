@@ -1005,7 +1005,6 @@ def readimage(filename):
     if im.mode=='L':        # 8 bit image
         gray=numpy.fromstring(s,numpy.uint8)/255.0
     elif im.mode=='I;16':   # 16 bit image (assume 12 bit grayscale)
-        print('a')
         gray=numpy.fromstring(s,numpy.uint16)/4095.0
     else:
         raise ImageFormatNotSupported

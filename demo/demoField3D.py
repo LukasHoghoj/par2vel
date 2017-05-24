@@ -61,7 +61,7 @@ iagrid.dxdX()
 iagrid.stereo()
 print("Execution time for stereo part was %s seconds" % (time.time()-t_stereo))
 imshowrange = iagrid.X_corners_rectangle.reshape(4)
-"""
+
 plt.figure(1)
 plt.imshow(ai.Im[0], cmap='gray')
 plt.figure(2)
@@ -69,7 +69,7 @@ plt.imshow(ai.Im[1], cmap='gray')
 plt.figure(3)
 plt.imshow(ai2.Im[0], cmap='gray')
 plt.figure(4)
-plt.imshow(ai2.Im[1], cmap='gray')"""
+plt.imshow(ai2.Im[1], cmap='gray')
 plt.figure(1)
 plt.quiver(iagrid.field2d[0].x[0,:,:],iagrid.field2d[0].x[1,:,:],\
            iagrid.field2d[0].dx[0,:,:],iagrid.field2d[0].dx[1,:,:])
