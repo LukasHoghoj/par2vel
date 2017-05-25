@@ -2,8 +2,8 @@
 
 import unittest
 import numpy
-from par2vel.field import Field2D
-from par2vel.camera import Camera
+from par2vel.field import Field2D, Field3D
+from par2vel.camera import Camera, Scheimpflug
 
 class testField2D(unittest.TestCase):
     
@@ -87,6 +87,44 @@ class testField2D(unittest.TestCase):
         fld.replaceoutlier()
         self.assertAlmostEqual(abs(fld.dx[:,0,0]-[res,res]).sum(),0)
 
+class testField3D(unittest.TestCase):
+    def testgrids(self):
+        cam1 = Scheimpflug((512,512))
+        cam2 = Scheimpflug((1024,1024))
+        cam1.set_calibration(numpy.pi/3,1/1000)
+        cam2.set_calibration(-numpy.pi/4,1/500)
+        field = Field3D([cam1,cam2])
+        field.grid([25,20])
+        X_1 = field.field2d[0].camera.x2X(field.field2d[0].xflat())
+        X_2 = field.field2d[1].camera.x2X(field.field2d[1].xflat())
+        for i in range(500):
+            for k in range(3):
+                self.assertAlmostEqual(X_1[k,i],X_2[k,i])
+                
+    def testpartial(self):
+        cam1 = Scheimpflug((32,32))
+        cam2 = Scheimpflug((32,32))
+        cam1.set_calibration(numpy.pi/3,1/100)
+        cam2.set_calibration(-numpy.pi/3,1/100)
+        field = Field3D([cam1,cam2])
+        field.grid([2,2])
+        field.dxdX()
+
+    def testStereo(self):
+        cam1 = Scheimpflug((512,512))
+        cam2 = Scheimpflug((512,512))
+        cam1.set_calibration(numpy.pi/3,1/200)
+        cam2.set_calibration(-numpy.pi/3.1,1/250)
+        field = Field3D([cam1,cam2])
+        field.grid([4,3])
+        dX_flat = field.getX_flat()/100
+        dX = dX_flat.reshape(field.X.shape)
+        X_flat = field.X.reshape((3,-1))
+        field.field2d[0].dx = field.field2d[0].camera.dX2dx(X_flat,dX_flat).reshape((2,4,3))
+        field.field2d[1].dx = field.field2d[1].camera.dX2dx(X_flat,dX_flat).reshape((2,4,3))
+        field.stereo()
+        numpy.testing.assert_array_almost_equal(dX,field.dX)
+        
 if __name__=='__main__':
     numpy.set_printoptions(precision=4)
-    unittest.main()
+    unittest.main(exit = False)

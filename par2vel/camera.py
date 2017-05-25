@@ -142,6 +142,39 @@ class Camera(object):
         newimage = image[i,j]
         newimage = newimage.reshape(self.shape)
         return newimage  
+        
+    def dX2dx(self, X, dX):
+        """Transform displacements in obejct plane to image plane
+        input as 2 3D vectors"""
+        dx = self.X2x(X + 0.5 * dX) - self.X2x(X - 0.5 * dX)
+        return dx
+
+    def dx2dX(self, x, dx):
+        """Transform displacements in camera plane to image plane,
+        assuming that dX[2] = 0 i.e. there is no displacement in the
+        Z direction"""
+        dX = self.x2X(x + 0.5 * dx) - self.x2X(x - 0.5 * dx)
+        return dX
+
+    def part(self, X, n = 8):
+        """Compute the partial derivatives at a point"""
+        from numpy import eye, repeat, tile
+        len = X.shape[1]
+        disp =  tile(eye(3) * 10**(-n), len)
+        dxdX = (self.X2x(repeat(X, 3).reshape(3, 3 * len) + disp) -\
+                self.X2x(repeat(X, 3).reshape(3, 3 * len))) *  10 ** n
+        return dxdX
+
+    def x2X(self, x):
+        """Transform image plane coordinates to object plane, assuming Z = 0"""
+        import numpy as np
+        import scipy.optimize as opt
+        # Create empty solution vector (3rd dimension will always stay 0 as assumed)
+        X = np.zeros((3,x.shape[1]))
+        XY_guess = np.zeros(2)
+        for i in range(x.shape[1]):
+            X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess,x[:,i])
+        return X
 
 class One2One(Camera):
     """Camera model that assumes object coordinates = image coordinates"""
@@ -235,6 +268,28 @@ class Linear2d(Camera):
                 print(number, end=' ', file=f)
             print(file=f)
         f.close()
+
+    def calibration(self, x, X, filename = False):
+        """Calibrate Linear2D camera. Two input arrays first pixel
+        coordinates, then 2D object plane coordinates. A filename,
+        can be given as optional input to save the calibration"""
+        from numpy import zeros, ones, arange, vstack
+        from numpy.linalg import lstsq
+        assert x.shape == X.shape
+        assert x.shape[0] == 2
+        len = x.shape[1]
+        lhs = zeros(2 * len)
+        indices = arange(2 * len)
+        lhs[indices % 2 == 0] = x[0]
+        lhs[indices % 2 == 1] = x[1]
+        element_rhs = vstack((X, ones(len))).T
+        rhs = zeros((2 * len, 6))
+        rhs[indices % 2 == 0, 0:3] = element_rhs
+        rhs[indices % 2 == 1, 3:6] = element_rhs
+        res = lstsq(rhs, lhs)[0]
+        self.calib = res.reshape(2, 3)
+        if filename != False:
+            self.save_camera(filename)
 
     def X2x(self, X):
         """Use camera model to get camera coordinates x
@@ -337,6 +392,33 @@ class Linear3d(Camera):
             print(file=f)
         f.close()
 
+    def calibration(self, x, X, filename = False):
+        """Calibrate Linear3D camera. Two input arrays first pixel
+        coordinates, then 3D object plane coordinates. A filename,
+        can be given as optional input to save the calibration"""
+        from numpy import zeros, ones, arange, vstack, append
+        from numpy.linalg import lstsq
+        assert x.shape[1] == X.shape[1]
+        len = x.shape[1]
+        lhs = zeros(2 * len)
+        rhs = zeros((2 * len, 11))
+        indices = arange(2 * len)
+        lhs[indices % 2 == 0] = x[0]
+        lhs[indices % 2 == 1] = x[1]
+        element_rhs = vstack((X, ones(len))).T
+        rhs[indices % 2 == 0, 0:4] = element_rhs
+        rhs[indices % 2 == 1, 4:8] = element_rhs
+        rhs[indices % 2 == 0, 8] = -X[0] * x[0]
+        rhs[indices % 2 == 1, 8] = -X[0] * x[1]
+        rhs[indices % 2 == 0, 9] = -X[1] * x[0]
+        rhs[indices % 2 == 1, 9] = -X[1] * x[1]
+        rhs[indices % 2 == 0, 10] = -X[2] * x[0]
+        rhs[indices % 2 == 1, 10] = -X[2] * x[1]
+        res = lstsq(rhs, lhs)[0]
+        self.calib = append(res, 1).reshape(3, 4)
+        if filename != False:
+            self.save_camera(filename)
+
     def X2x(self, X):
         """Use camera model to get camera coordinates x
            from physical cooardinates X.
@@ -395,7 +477,7 @@ class Scheimpflug(Camera):
                 self.set_keyword(line)
             n += 1
         self.shape = self.pixels
-        
+
     def save_camera(self, filename):
         """Save camera definition and/or calibration data"""
         f = open(filename,'w')
@@ -492,7 +574,430 @@ class Scheimpflug(Camera):
         to displacement in image coordinates"""
         dx = self.X2x(X + 0.5 * dX) - self.X2x(X - 0.5 * dX)
         return dx
-                
+
+class Pinhole(Camera):
+    """ Camera model for pinhole model"""
+    def __init__(self, newshape = None):
+        Camera.__init__(self,newshape)
+        # Define camera model
+        self.model = 'Pinhole'
+    
+    def Calibrate_Pinhole(self,X, x, C):
+        """Function to calibrate camera with respect to the pinhole model. The
+        function takes the input Calibrate_Pinhole([X,Y,Z],[x,y]); where X,Y and Z
+        are the coordinates in object space and x and y are their respectevely
+        corresponding coordinates in the image plane. The argument C is a guess
+        for the camera matrix"""
+        import numpy as np
+        from numpy.linalg import inv
+        from scipy.linalg import lstsq
+        import scipy.optimize as opt
+        import scipy as sp
+        assert X.shape[1] == x.shape[1]
+        # Maximum number of iterations:
+        ite_max = 10
+        # Maximum error:
+        err_max = 0.5
+        x_1 = np.vstack((x,np.ones((1,x.shape[1]))))
+        # Length of given data
+        len = X.shape[1]
+        # Add ones as 4th dimension to physical coordinates
+        X_p = np.vstack((X, np.ones(len)))
+        x_d = np.zeros(x.shape)
+        # Compute normalized coordinates corrected for distorted with camera
+        # matrix guess
+        x_d[0, :] = (x[0, :] - C[0, 2]) / C[0, 0]
+        x_d[1, :] = (x[1, :] - C[1, 2]) / C[1, 1]
+        # Find roation and translation matrix, that fit's the best for transforming
+        # physical coordinates to nondistorted camera plane
+        R = self.Rotation_T(x_d, X)
+        # Find resulting distorted normalized coordinates
+        X_C = np.dot(R, X_p)
+        x_n = np.zeros((2, len))
+        x_n[0] = X_C[0] / X_C[2]
+        x_n[1] = X_C[1] / X_C[2]
+        # Find distortion constants that fit the best
+        #k1, k2, k3, p1, p2 = self.Distortion(x_d, x_n)
+        dis = self.Distortion(x_d, x_n)
+        # Correct for distortion with the new constants
+        x_d = self.dis_method(x_n, dis)
+        # Find new camera matrix, by using the real camera coordinates and the normalized
+        # coordinates, that are corrected for distortion
+        C = self.Cam_Matrix(x, x_d)
+        x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
+        # Compute average error:
+        err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
+        ite = 0
+        while err >= err_max and ite < ite_max:
+            # Recompute through the system to find the error:
+            x_d = (inv(np.vstack((C,np.array([0,0,1])))).dot(x_1))[0 : 2, :]
+            # Compute distortion backwards
+            for i in range(len):
+                x_n[:,i] = opt.fsolve(self.dis_method, x_d[:,i],args = ( dis, x_d[:,i]))
+            # New matrix for rotation/transtlation
+            R = self.Rotation_T(x_d, X)
+            # Compute new distorted coordinates
+            X_C = np.dot(R, X_p)
+            x_n[0] = X_C[0] / X_C[2]
+            x_n[1] = X_C[1] / X_C[2]
+            # New distortion coefficients:
+            dis = self.Distortion(x_d, x_n)
+            x_d = self.dis_method(x_n, dis)
+            C = self.Cam_Matrix(x, x_d)
+            x_p = np.dot(C, np.vstack((x_d, np.ones(len))))
+            err = np.mean(np.sqrt((x_p[0] - x[0]) ** 2 + (x_p[1] - x[1]) ** 2))
+            ite += 1
+        k1, k2, k3, p1, p2 = dis
+        self.R = R.astype(numpy.float64)
+        self.C = C.astype(numpy.float64)
+        self.k1 = k1.astype(numpy.float64)
+        self.k2 = k2.astype(numpy.float64)
+        self.k3 = k3.astype(numpy.float64)
+        self.p1 = p1.astype(numpy.float64)
+        self.p2 = p2.astype(numpy.float64)
+
+    def dis_method(self, x_n, dis, dif = 0):
+        """Help function for the pinhole calibration"""
+        assert x_n.shape[0] == 2
+        from numpy import vstack, zeros, ndim
+        a = 0
+        if x_n.shape[0] == 2 and ndim(x_n) == 1:
+            x_n = x_n.reshape(2,1)
+            a = 1
+        len = x_n.shape[1]
+        k1, k2, k3, p1, p2 = dis
+        x_d = zeros((2, len))
+        r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
+        x_d[0 , :] = x_n[0 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
+                     + 2 * p1 * x_n[0 , :] * x_n[1 , :] + p2 * (r + 2 * x_n[0 , :] ** 2)
+        x_d[1 , :] = x_n[1 , :] * (1 + k1 * r + k2 * r ** 2 + k3 * r ** 3)\
+                     + p1 * (r + 2 * x_n[1 , :] ** 2) + 2 * p2 * x_n[0 , :] * x_n[1 , :]
+        if a == 1:
+            x_d = x_d.reshape(2)
+        return x_d - dif
+        
+    def Distortion(self,x_d, x_n):
+        """Function returns the distortion cooeficients for given distorted and 
+        normalized coordinates"""
+        import numpy as np
+        from scipy.linalg import lstsq
+        import scipy as sp
+        assert x_d.shape == x_n.shape
+        len = x_d.shape[1]
+        lhs = np.zeros(len * 2)
+        i = np.arange(len * 2)
+        lhs[i % 2 == 0] = x_d[0, :] - x_n[0, :]
+        lhs[i % 2 == 1] = x_d[1, :] - x_n[1, :]
+        rhs = np.zeros((len * 2, 5))
+        r = (x_n[0, :] ** 2 + x_n[1, :] ** 2)
+        rhs[:, 0][i % 2 == 0] = x_n[0, :] * r
+        rhs[:, 0][i % 2 == 1] = x_n[1, :] * r
+        rhs[:, 1][i % 2 == 0] = x_n[0, :] * r ** 2
+        rhs[:, 1][i % 2 == 1] = x_n[1, :] * r ** 2
+        rhs[:, 2][i % 2 == 0] = x_n[0, :] * r ** 3
+        rhs[:, 2][i % 2 == 1] = x_n[1, :] * r ** 3
+        rhs[:, 3][i % 2 == 0] = 2 * x_n[0, :] * x_n[1, :]
+        rhs[:, 3][i % 2 == 1] = r + 2 * x_n[1, :] ** 2 
+        rhs[:, 4][i % 2 == 0] = r + 2 * x_n[0, :] ** 2
+        rhs[:, 4][i % 2 == 1] = 2 * x_n[0, :] * x_n[1, :]
+        
+        dis = lstsq(rhs,lhs)[0]
+        return dis
+
+    def Rotation_T(self,x_n, X_p):
+        """Function that finds the rotation and translation parameters """
+        import numpy as np
+        from scipy.linalg import lstsq
+        import scipy as sp
+        assert x_n.shape[1] == X_p.shape[1]
+        len = x_n.shape[1]
+        lhs = np.zeros(len * 2)
+        rhs = np.zeros((len * 2, 11))
+        i = np.arange(len * 2)
+        lhs[i % 2 == 0] = x_n[0, :]
+        lhs[i % 2 == 1] = x_n[1, :]
+        rhs[:, 0 : 3][i % 2 == 0] = X_p.T
+        rhs[:, 3][i % 2 == 0] = 1
+        rhs[:, 0 : 4][i % 2 == 1] = 0
+        rhs[:, 4 : 8][i % 2 == 0] = 0
+        rhs[:, 4 : 7][i % 2 == 1] = X_p.T
+        rhs[:, 7][i % 2 == 1] = 1
+        rhs[:, 8][i % 2 == 0] = - x_n[0, :] * X_p[0, :]
+        rhs[:, 8][i % 2 == 1] = - x_n[1, :] * X_p[0, :]
+        rhs[:, 9][i % 2 == 0] = - x_n[0, :] * X_p[1, :]
+        rhs[:, 9][i % 2 == 1] = - x_n[1, :] * X_p[1, :]
+        rhs[:, 10][i % 2 == 0] = - x_n[0, :] * X_p[2, :]
+        rhs[:, 10][i % 2 == 1] = - x_n[1, :] * X_p[2, :]
+        #rhs[:, 11][i % 2 == 0] = - x_n[0, :]
+        #rhs[:, 11][i % 2 == 1] = - x_n[1, :]
+        RT = lstsq(rhs,lhs)[0]
+        R = np.zeros((3,4))
+        R[0] = RT[0 : 4]
+        R[1] = RT[4 : 8]
+        R[2, 0 : 3] = RT[8 : 12]
+        R[2, 3] = 1
+        return R
+
+    def Cam_Matrix(self,x_p, x_d):
+        """Function that optimizes the camera matrix, such that it fits the best
+        """
+        import numpy as np
+        from scipy.linalg import lstsq
+        import scipy as sp
+        assert x_p.shape == x_d.shape
+        len = x_p.shape[1]
+        lhs = np.zeros(len * 2)
+        i = np.arange(len * 2)
+        rhs = np.zeros((len * 2, 4))
+        lhs[i % 2 == 0] = x_p[0, :]
+        lhs[i % 2 == 1] = x_p[1, :]
+        rhs[:, 0][i % 2 == 0] = x_d[0, :]
+        rhs[:, 0][i % 2 == 1] = 0
+        rhs[:, 1][i % 2 == 0] = 0
+        rhs[:, 1][i % 2 == 1] = x_d[1, :]
+        rhs[:, 2][i % 2 == 0] = 1
+        rhs[:, 2][i % 2 == 1] = 0
+        rhs[:, 3][i % 2 == 0] = 0
+        rhs[:, 3][i % 2 == 1] = 1
+
+        f = lstsq(rhs, lhs)[0]
+        Cam_M = np.zeros((2,3))
+        Cam_M[0, 0] = f[0]
+        Cam_M[1, 1] = f[1]
+        Cam_M[0, 2] = f[2]
+        Cam_M[1, 2] = f[3]
+
+        return Cam_M
+
+    def set_calibration(self, R, dis, C):
+        """Set calibration for Pinhole camera model, to be caled as
+        camera.set_calibration(R, dis, C), where R is the rotation and
+        translation matrix, dis the 5D array with the lens distortion
+        coefficients and C the camera matrix"""
+        self.R = R
+        self.k1 = dis[0]
+        self.k2 = dis[1]
+        self.k3 = dis[2]
+        self.p1 = dis[3]
+        self.p2 = dis[4]
+        self.C = C
+
+    def calibration(self, x, X, filename = False):
+        """Calibrate camera and save calibration if a filename is in the input
+        """
+        from numpy import array
+        C_guess  = array([[self.focal_length, 0, self.shape[0] / 2],[0, self.focal_length, self.shape[1] / 2]])
+        self.Calibrate_Pinhole(X, x, C_guess)
+        if filename != False:
+            self.save_camera(filename)
+    
+    def save_camera(self, filename):
+        """Save camera definition and/or calibration data"""
+        from numpy import array
+        f = open(filename,'w')
+        f.write('# par2vel camera file\n')
+        f.write("model = '{:}'\n".format(self.model))
+        # first save defined keywords
+        self.save_keywords(f)
+        # save calibration
+        print('Calibration Pinhole (Rotation matrix, distortion coefficients & Camera matrix)', file = f)
+        for row in self.R:
+            for number in row:
+                print(repr(number), end=' ', file = f)
+            print(file=f)
+        dis = array([self.k1, self.k2, self.k3, self.p1, self.p2])
+        for number in dis:
+            print(repr(number), end = ' ', file = f)
+        print(file = f)
+        for row in self.C:
+            for number in row:
+                print(repr(number), end = ' ', file = f)
+            print(file = f)
+        f.close()
+        
+    def read_camera(self, filename):
+        """This function reads the calibration file, that can is created if a filename
+        input exists in the set_calibration function
+        """
+        lines = open(filename).readlines()
+        nlines = len(lines)
+        n = 0
+        while n < nlines:
+            line = lines[n]
+            # check for calibration data
+            if line.lower().find('calibration') == 0:
+                if line.lower().find('pinhole') > 0:
+                    R = numpy.array([
+                        [float(x) for x in lines[n+1].split()],
+                        [float(x) for x in lines[n+2].split()],
+                        [float(x) for x in lines[n+3].split()] ])
+                    dis = numpy.array([float(x) for x in lines[n+4].split()])
+                    C = numpy.array([[float(x) for x in lines[n+5].split()],
+                                     [float(x) for x in lines[n+6].split()]])
+                    self.set_calibration(R,dis,C)
+                    n += 6                
+            else:
+                self.set_keyword(line)
+            n += 1
+        self.shape = self.pixels
+
+    def X2x(self,X, x_solve = 0):
+        """Transformation from object to camera plane, input is a 3D vector (X,Y,Z),
+        output a 2D vector (x,y)"""
+        import numpy as np
+        a = 0
+        if X.shape[0] == 2 and np.ndim(X.shape) == 1:
+            X = np.vstack((X.reshape(2,1),np.zeros(1)))
+            a = 1
+        len = X.shape[1]
+        X_C = np.dot(self.R , np.vstack((X, np.ones(len))))
+        x_n = np.zeros((2, len))
+        if any(X_C[2] == 0):
+            pos = np.argwhere(X_C[2] == 0)
+            X_C[2, pos] = 0.01
+            print('Correction reqired in X2x')
+        x_n[0] = X_C[0] / X_C[2]
+        x_n[1] = X_C[1] / X_C[2]
+        x_d = np.zeros((2, len))
+        r = x_n[0 , :] ** 2 + x_n[1 , :] ** 2
+        x_d[0 , :] = x_n[0 , :] * (1 + self.k1 * r + self.k2 * r ** 2 + self.k3 * r ** 3)\
+                     + 2 * self.p1 * x_n[0 , :] * x_n[1 , :] + self.p2 * (r + 2 * x_n[0 , :] ** 2)
+        x_d[1 , :] = x_n[1 , :] * (1 + self.k1 * r + self.k2 * r ** 2 + self.k3 * r ** 3)\
+                     + self.p1 * (r + 2 * x_n[1 , :] ** 2) + 2 * self.p2 * x_n[0 , :] * x_n[1 , :]
+        x= np.dot(self.C , np.vstack((x_d, np.ones(len))))
+        if a == 1:
+            x = x.reshape(2)
+        return x - x_solve
+
+    def x2X(self, x):
+        """Transformation from camera plane to object space. As the equation would be 
+        underdefined, it is assumed that X[2] = 0"""
+        import numpy as np
+        from numpy.linalg import solve, inv
+        import scipy.optimize as opt
+        # Create empty solution vector (3rd dimension will always stay 0 as assumed)
+        X = np.zeros((3,x.shape[1]))
+        # First transform the image coordinates to physical plane (assuming no distortion)
+        # in order to set up a guess
+        x_p = np.vstack((x,np.ones((1,x.shape[1]))))
+        x_d = (inv(np.vstack((self.C,np.array([0,0,1])))).dot(x_p))[0 : 2, :]
+        base_rhs =  self.R[0 : 2, 0 : 2]
+        for i in range(x.shape[1]):
+            lhs = x_d[:, i] * self.R[2, 3] - self.R[0 : 2, 3]
+            rhs = np.zeros((2,2))
+            rhs[0, :] = base_rhs[0, :] - self.R[2, 0:2] * x_d[0, i]
+            rhs[1, :] = base_rhs[1, :] - self.R[2, 0:2] * x_d[1, i]
+            XY_guess = solve(rhs, lhs).reshape(2,1)
+            X[0 : 2, i] = opt.fsolve(self.X2x,XY_guess[0:2],x[:,i])
+        return X
+
+class Third_order(Camera):
+    """Third order camera model"""
+    def __init__(self, newshape = None):
+        Camera.__init__(self,newshape)
+        # Define camera model
+        self.model = 'Third_order'
+    
+    def set_calibration(self, calib):
+        """Set calibration from given 2z20 array, that is given as input to
+        this function"""
+        assert calib.shape == (2,20)
+        self.calib = calib
+
+    def calibration(self, x, X, filename = False):
+        """Calibrates the third order camera model, by using the input camera
+        and object plane coordinates"""
+        from scipy.sparse import lil_matrix
+        from scipy.sparse.linalg import lsqr
+        from numpy import zeros, arange, array, tile, ones
+        assert x.shape[1] == X.shape[1]
+        assert X.shape[0] == 3
+        assert x.shape[0] == 2
+        len = x.shape[1]
+        # Empty sparse matrix for the right hand side of the equation system,
+        # which will give the calibration array
+        rhs = zeros((2 * len, 40))
+        # Empty array for left hand side
+        lhs = zeros(2 * len)
+        # Indices to assign values to the sparse matrix and the array
+        index = arange(2 * len)
+        # Assign image plane coordinates to left hand side of the equation system
+        lhs[index % 2 == 0] = x[0]
+        lhs[index % 2 == 1] = x[1]
+        # Setting up the 3rd order values in a 20D array
+        third = array([X[0], X[1], X[2], X[0] * X[1], X[0] * X[2], X[1] * X[2],
+                       X[0] ** 2, X[1] ** 2, X[2] ** 2, X[0] ** 2  * X[1], X[0] ** 2
+                       * X[2], X[1] ** 2 * X[0], X[1] ** 2 * X[2], X[2] ** 2 * X[0],
+                       X[2] ** 2 * X[1], X[0] ** 3, X[1] ** 3, X[2] ** 3, X[0] * X[1]
+                       * X[2], ones(len)]).T
+        rhs[:, 0 : 20][index % 2 == 0] = third
+        rhs[:, 20 : 40][index % 2 == 1] = third
+        calib = lsqr(rhs, lhs)[0].reshape(2,20)
+        self.set_calibration(calib)
+        if filename != False:
+            self.save_camera(filename)
+
+    def save_camera(self, filename):
+        """Save camera definition and/or calibration data"""
+        from numpy import array
+        f = open(filename,'w')
+        f.write('# par2vel camera file\n')
+        f.write("model = '{:}'\n".format(self.model))
+        # first save defined keywords
+        self.save_keywords(f)
+        # save calibration
+        print('Calibration third order', file = f)
+        for row in self.calib:
+            for number in row:
+                print(repr(number), end=' ', file = f)
+            print(file=f)
+
+    def read_camera(self, filename):
+        """This function reads the calibration file, that can is created if a filename
+        input exists in the set_calibration function
+        """
+        lines = open(filename).readlines()
+        nlines = len(lines)
+        n = 0
+        while n < nlines:
+            line = lines[n]
+            # check for calibration data
+            if line.lower().find('calibration') == 0:
+                if line.lower().find('third order') > 0:
+                    calib = numpy.array([
+                        [float(x) for x in lines[n+1].split()],
+                        [float(x) for x in lines[n+2].split()] ])
+                    self.set_calibration(calib)
+                    n += 2
+            else:
+                self.set_keyword(line)
+            n += 1
+        self.shape = self.pixels
+
+    def X2x(self, X, dif = 0):
+        """Transform object plane coordinates to image plane, if a 2D array is
+        given as input it is assumed that Z = 0 for all points in the array.
+        The optional argument dif can be used to get the difference to a given 
+        point in image plane"""
+        from numpy import vstack, zeros, array, dot, ndim, ones
+        assert (X.shape[0] == 2 and ndim(X.shape) == 1) or X.shape[0] == 3
+        a = 0
+        if X.shape[0] == 2 and ndim(X.shape) == 1:
+            X = vstack((X.reshape(2,1),0))
+            a = 1
+        len = X.shape[1]
+        X_coeff = array([X[0], X[1], X[2], X[0] * X[1], X[0] * X[2], X[1] * X[2],
+                       X[0] ** 2, X[1] ** 2, X[2] ** 2, X[0] ** 2  * X[1], X[0] ** 2
+                       * X[2], X[1] ** 2 * X[0], X[1] ** 2 * X[2], X[2] ** 2 * X[0],
+                       X[2] ** 2 * X[1], X[0] ** 3, X[1] ** 3, X[2] ** 3, X[0] * X[1]
+                       * X[2], ones(len)])
+        x = self.calib.dot(X_coeff)
+        if a == 1:
+            x = x.reshape(2)
+        return x - dif
+
+
+
 def readimage(filename):
     """ Read grayscale image from file 
         Probably only works with tiff and bmp files 
@@ -516,3 +1021,23 @@ def saveimage(image,filename):
     im8bit=(255*imwork).astype(numpy.uint8)
     im=Image.frombytes('L',(image.shape[1],image.shape[0]),im8bit.tostring())
     im.save(filename)
+
+def read_cali_file(filename):
+    """This function can read the files created with the Calibration_image
+    object (in read_calibration.py). It returns a 5 x n array, that contains
+    the object and image coordinates [X, Y, Z, x, y]"""
+    from numpy import array, hstack, insert
+    lines = open(filename).readlines()
+    X = array([[0], [0], [0], [0], [0]])
+    n = 0
+    nlines = len(lines)
+    while n < nlines:
+        line = lines[n]
+        # Check for beginning of a new Z
+        if line.lower().find('z = ') == 0:
+            Z = float(line.split()[2])
+        if len(line.split()) == 4 and line.isalpha() == False:
+            line = array([float(x) for x in line.split()])
+            X = hstack((X, insert(line, 2, Z).reshape(5,1)))
+        n += 1
+    return X[:, 1::]

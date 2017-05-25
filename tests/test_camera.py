@@ -92,6 +92,16 @@ class testLinear2d(unittest.TestCase):
         self.assertAlmostEqual((cam2.calib - calib).sum(), 0)
         os.remove(filename)
 
+    def test_calib(self):
+        cam1 = Linear2d()
+        calib = numpy.array([[0.1, 0, 100], [0, 0.11, 101]])
+        cam1.set_calibration(calib)
+        X = numpy.mgrid[-2:2:0.1,-2:2:0.1].reshape(2, -1)
+        x = cam1.X2x(X)
+        cam2 = Linear2d()
+        cam2.calibration(x, X)
+        self.assertAlmostEqual((cam1.calib - cam2.calib).sum(), 0)
+
 class testLinear3d(unittest.TestCase):
 
     def test_X2x(self):
@@ -122,6 +132,28 @@ class testLinear3d(unittest.TestCase):
         self.assertAlmostEqual((cam2.calib - calib).sum(), 0)
         os.remove(filename)
 
+    def test_calib(self):
+        from numpy import array, mgrid
+        cam1 = Linear3d()
+        calib =  array([[1.0, 0, 0, 0],
+                        [0.0, 1, 0, 0],
+                        [0.0, 0, 0, 1]])
+        cam1.set_calibration(calib)
+        X = mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001].reshape((3, -1))
+        x = cam1.X2x(X)
+        cam2 = Linear3d()
+        cam2.calibration(x, X)
+        self.assertAlmostEqual((cam1.calib - cam2.calib).sum(), 0)
+        cam1 = Linear3d()
+        calib =  array([[1.0, 2.0, 3.0, 4.0],
+                        [1.0, 2.0, 3.0, 4.0],
+                        [20.0, 0.2, 0.1, 1]])
+        cam1.set_calibration(calib)
+        X = mgrid[-1:1:0.1,-1:1:0.1,-0.001:0.001:0.001].reshape((3, -1))
+        x = cam1.X2x(X)
+        cam2 = Linear3d()
+        cam2.calibration(x, X)
+        self.assertAlmostEqual((cam1.calib - cam2.calib).sum(), 0)
 
 class testScheimpflug(unittest.TestCase):
 
@@ -179,8 +211,156 @@ class testScheimpflug(unittest.TestCase):
         self.assertAlmostEqual(cam2.M, 0.1)
         os.remove(filename)
 
+class testPinhole(unittest.TestCase):
+    def test_X2x(self):
+        import numpy as np
+        cam  = Pinhole((512,512))
+        R = np.array([[1, 2, 3, 4],
+                      [5, 6, 7, 8],
+                      [9, 10, 11,12]])
+        dis = np.array([ 1e-2, 2e-2, 3e-2, 4e-2, 5e-2])
+        C = np.array([[6e-2, 0, 256],
+                      [0, 6e-2, 256]])
+        cam.set_calibration(R, dis, C)
+        X = np.array([[0], [0], [0]])
+        x_result = np.array([[256.0237374], [256.0454749]])
+        x = cam.X2x(X)
+        self.assertAlmostEqual((x - x_result).sum(), 0)
+        X = np.array([[1], [1], [1]])
+        x_result = np.array([[256.0168076817485], [256.041324462342]])
+        x = cam.X2x(X)
+        self.assertAlmostEqual((x - x_result).sum(), 0)
 
+    def testCalibration(self):
+        """This test is primarily testing the calibration for the 
+        pinhole model, however, it is also testing some functions of
+        the Pinhole camera model as they are necessary for this unittest
+        """
+        import numpy as np
+        cam = Scheimpflug((512,512))
+        cam.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cam.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        pincam = Pinhole((512,512))
+        pincam.calibration(x, X)
+        X_test = np.array([[2, 1.1, -0.1, 1.5],[0.2, -1.1, 0, 0.4],[0.0005, -0.0003, -0.0009, 0.0009]])
+        x_sch = cam.X2x(X_test)
+        x_pin = pincam.X2x(X_test)
+        zero = np.zeros(4)
+        diff = np.sqrt((x_sch[0] - x_pin[0]) ** 2 + (x_sch[1] - x_pin[1]) ** 2)
+        #numpy.testing.assert_array_almost_equal(diff,zero,decimal = 10)
+        np.testing.assert_array_almost_equal(x_sch,x_pin,decimal = 8)
+    
+    def test_save_read(self):
+        import numpy as np
+        camw  = Pinhole((512,512))
+        R = np.array([[1.0, 2.0, 3.0, 4.0],
+                      [5.0, 6.0, 7.0, 8.0],
+                      [9.0, 10.0, 1.10, 1.0]])
+        dis = np.array([ 1.0e-2, 2.0e-2, 3.0e-2, 4.0e-2, 5.0e-2])
+        C = np.array([[6e-2, 0, 256.0],
+                      [0, 6e-2, 256.0]])
+        camw.set_calibration(R, dis, C)
+        filename = 'temporary5.cam'
+        camw.save_camera(filename)
+        camr = Pinhole()
+        camr.read_camera(filename)
+        self.assertAlmostEqual((camw.R - camr.R).sum(),0)
+        os.remove(filename)
+
+    def test_x2X(self):
+        import numpy as np
+        # Setup a realistic camera based on Scheimpflug
+        cam = Scheimpflug((512,512))
+        cam.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cam.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        pincam = Pinhole((512,512))
+        pincam.calibration(x, X)
+        """
+        # Bigger distortion
+        pincam.k1 = -1.0e-7
+        pincam.k2 = -2.0e-7
+        pincam.k3 = -3.0e-7
+        pincam.p1 = -4.0e-8
+        pincam.p2 = -5.0e-8
+        """
+        X = np.array([[0,1.1,0.5,1], [0,1,-1,-2], [0,0,0,0]])
+        x = pincam.X2x(X)
+        X_computed = pincam.x2X(x)
+        self.assertAlmostEqual(abs(X - X_computed).sum(),0)
+        
+class testThirdOrder(unittest.TestCase):
+    def testCalibrationX2x(self):
+        """This test is primarily testing the calibration for the 
+        pinhole model, however, it is also testing some functions of
+        the Pinhole camera model as they are necessary for this unittest
+        """
+        import numpy as np
+        cams = Scheimpflug((512,512))
+        cams.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cams.X2x(X)
+        C = np.array([[0.06, 0 , 256] , [0 , 0.06 , 256]])
+        cam = Third_order((512,512))
+        cam.calibration(x, X)
+        X_test = np.array([[2, 1.1, -0.1, 1.5],[0.2, -1.1, 0, 0.4],[0.0005, -0.0003, -0.0009, 0.0009]])
+        x_sch = cam.X2x(X_test)
+        x_com = cam.X2x(X_test)
+        zero = np.zeros(4)
+        diff = np.sqrt((x_sch[0] - x_com[0]) ** 2 + (x_sch[1] - x_com[1]) ** 2)
+        numpy.testing.assert_array_almost_equal(diff,zero,decimal = 10)
+
+    def testX2x(self):
+        from numpy import arange, eye, array
+        calib = arange(40).reshape(2,20)
+        cam = Third_order((512,512))
+        cam.set_calibration(calib)
+        X = eye(3)
+        x_expect = array([[40, 43, 46],[120, 123, 126]])
+        x = cam.X2x(X)
+        diff = ((x[0] - x_expect[0]) ** 2 + (x[1] - x_expect[1]) ** 2) ** (0.5)
+        zero = array([0, 0, 0])
+        numpy.testing.assert_array_almost_equal(diff,zero)
+        X = array([[1],[1],[1]])
+        x_expect = array([[190], [590]])
+        x = cam.X2x(X)
+        diff = ((x[0] - x_expect[0]) ** 2 + (x[1] - x_expect[1]) ** 2) ** (0.5)
+        self.assertAlmostEqual(diff, 0)
+
+    def test_save_read(self):
+        import numpy as np
+        camw  = Third_order((512,512))
+        cali = np.tile(np.arange(20),(2,1))
+        camw.set_calibration(cali)
+        filename = 'temporary6.cam'
+        camw.save_camera(filename)
+        camr = Third_order()
+        camr.read_camera(filename)
+        self.assertAlmostEqual((camw.calib - camr.calib).sum(),0)
+        os.remove(filename)
+
+    def test_x2X(self):
+        import numpy as np
+        cams = Scheimpflug((512,512))
+        cams.set_calibration(np.pi/3,1/100)
+        X = np.mgrid[-2:2:0.1,-2:2:0.1,-0.001:0.001:0.001]
+        X = X.reshape((3,-1))
+        x = cams.X2x(X)
+        cam = Third_order((512,512))
+        cam.calibration(x, X)
+        X = np.array([[1, -1, 0.5, 0], [0, 1, -2, 1], [0, 0, 0, 0]])
+        x = cams.X2x(X)
+        X_com = cam.x2X(x)
+        zero = np.zeros(4)
+        diff = np.sqrt((X[0] - X_com[0]) ** 2 + (X[1] - X_com[1]) ** 2)
+        numpy.testing.assert_array_almost_equal(diff,zero,decimal = 2)
 
 if __name__=='__main__':
     numpy.set_printoptions(precision=4)
-    unittest.main()
+    unittest.main(exit = False)

@@ -23,7 +23,9 @@ Contents:
 
    overview
    camera
-   field   
+   camfield
+   field
+   stereo   
 
 
 Indices and tables
